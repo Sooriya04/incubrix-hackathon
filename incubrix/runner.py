@@ -17,6 +17,7 @@ import httpx
 from incubrix.audio import build_audio_pipeline, process_job_audio
 from incubrix.config import settings
 from incubrix.models import ErrorDetail, JobArtifacts, JobRecord
+from incubrix.project_generator import setup_job_remotion_project
 from incubrix.storage import job_store
 
 
@@ -44,6 +45,105 @@ def generate_signature(secret: str, payload_bytes: bytes) -> str:
         msg=payload_bytes,
         digestmod=hashlib.sha256,
     ).hexdigest()
+
+
+COMPOSITION_MAP = {
+    "16:9": "Broll-16x9",
+    "9:16": "Broll-9x16",
+    "1:1": "Broll-1x1",
+    "3:2": "Broll-3x2",
+}
+
+
+async def render_remotion_ratio(
+    workspace_dir: Path,
+    composition_id: str,
+    output_mp4: Path,
+    timeout_seconds: float = 120.0,
+    mock: bool = False,
+) -> None:
+    """Render a single aspect ratio composition to an H.264/AAC MP4 video."""
+    output_mp4 = Path(output_mp4).resolve()
+    workspace_dir = Path(workspace_dir).resolve()
+    output_mp4.parent.mkdir(parents=True, exist_ok=True)
+    if mock:
+        # Fast, deterministic MP4 generation with video and audio streams for testing (<0.1s)
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f", "lavfi", "-i", "color=c=0x0F1115:s=640x360:r=30",
+            "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
+            "-t", "2.0",
+            "-c:v", "mpeg4",
+            "-c:a", "aac",
+            str(output_mp4),
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Mock video generation failed with exit code {proc.returncode}")
+        return
+
+    # Real Remotion Render
+    cmd = [
+        "npx",
+        "remotion",
+        "render",
+        "index.ts",
+        composition_id,
+        str(output_mp4),
+        "--codec", "h264",
+        "--pixel-format", "yuv420p",
+        "--concurrency", "4",
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=str(workspace_dir),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    try:
+        stdout_data, stderr_data = await asyncio.wait_for(
+            proc.communicate(),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        raise asyncio.TimeoutError(f"Remotion render for {composition_id} timed out after {timeout_seconds}s")
+
+    if proc.returncode != 0:
+        stderr_msg = redact_secrets(stderr_data.decode("utf-8", errors="replace"))
+        err = RuntimeError(f"Remotion render failed with exit code {proc.returncode}: {stderr_msg[:300]}")
+        setattr(err, "exit_code", proc.returncode)
+        raise err
+
+    # Post-render validation: verify output exists and is playable
+    if not output_mp4.exists() or output_mp4.stat().st_size == 0:
+        raise RuntimeError(f"Remotion render finished but {output_mp4.name} is missing or empty")
+
+    verify_cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(output_mp4),
+    ]
+    verify_proc = await asyncio.create_subprocess_exec(
+        *verify_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    v_stdout, _ = await verify_proc.communicate()
+    if verify_proc.returncode != 0 or not v_stdout.strip():
+        raise RuntimeError(f"Rendered video {output_mp4.name} failed ffprobe playback verification")
 
 
 class JobRunner:
@@ -97,12 +197,12 @@ class JobRunner:
         is_mock = settings.AGY_MOCK or not Path(settings.AGY_BIN_PATH).exists()
 
         try:
-            # Phase 2 Audio Generation Pipeline
+            # 1. Phase 2 Audio Generation Pipeline
             job.stage = "transcribing"
             job.progress = 20
             await job_store.save_job(job)
 
-            await process_job_audio(
+            audio_res = await process_job_audio(
                 job_id=job.job_id,
                 job_request=job.request,
                 workspace_dir=workspace_dir,
@@ -114,6 +214,21 @@ class JobRunner:
             job.progress = 35
             await job_store.save_job(job)
 
+            # 2. Phase 3 Dynamic Remotion Project Harness Setup
+            aspect_ratios = job.request.get("aspect_ratios", ["16:9"])
+            style_theme = job.request.get("style", "developer")
+            valid_themes = ["developer", "ink", "paper", "signal"]
+            chosen_theme = style_theme if style_theme in valid_themes else "developer"
+
+            setup_job_remotion_project(
+                job_id=job.job_id,
+                workspace_dir=workspace_dir,
+                captions_data=audio_res["captions"],
+                aspect_ratios=aspect_ratios,
+                theme_name=chosen_theme,
+            )
+
+            # 3. Sourcing & Normalization Stages
             if is_mock:
                 await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
             else:
@@ -121,15 +236,41 @@ class JobRunner:
                     job, input_path, workspace_dir, artifacts_dir, stdout_log_path, stderr_log_path
                 )
 
+            # 4. Phase 3 Automatic Remotion Video Rendering for each requested aspect ratio
+            job.stage = "rendering"
+            job.progress = 75
+            await job_store.save_job(job)
+
+            for idx, ratio in enumerate(aspect_ratios):
+                composition_id = COMPOSITION_MAP.get(ratio, f"Broll-{ratio.replace(':', 'x')}")
+                safe_name = ratio.replace(":", "_")
+                video_out = artifacts_dir / f"video_{safe_name}.mp4"
+
+                step_prog = 75 + int(((idx + 1) / max(1, len(aspect_ratios))) * 18)
+                job.progress = min(93, step_prog)
+                await job_store.save_job(job)
+
+                await render_remotion_ratio(
+                    workspace_dir=workspace_dir,
+                    composition_id=composition_id,
+                    output_mp4=video_out,
+                    timeout_seconds=float(settings.JOB_TIMEOUT_SECONDS),
+                    mock=is_mock,
+                )
+
+            # 5. Packaging stage
+            job.stage = "packaging"
+            job.progress = 95
+            await job_store.save_job(job)
+
             # Execution succeeded
             end_time = time.monotonic()
             completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             duration_seconds = round(end_time - start_time, 2)
 
-            # Ensure deliverables exist (mock or real)
-            self._ensure_artifacts(job_id, artifacts_dir, job.request.get("aspect_ratios", ["16:9"]))
+            # Ensure deliverables exist (fallback safety net)
+            self._ensure_artifacts(job_id, artifacts_dir, aspect_ratios)
 
-            aspect_ratios = job.request.get("aspect_ratios", ["16:9"])
             videos_map = {
                 ratio: f"/api/v1/jobs/{job_id}/artifacts/video_{ratio.replace(':', '_')}.mp4"
                 for ratio in aspect_ratios
@@ -200,9 +341,7 @@ class JobRunner:
         """Deterministic mock pipeline for fast, credential-free testing."""
         stages = [
             ("sourcing_footage", 50, 0.05),
-            ("normalizing", 75, 0.05),
-            ("rendering", 90, 0.05),
-            ("packaging", 95, 0.05),
+            ("normalizing", 65, 0.05),
         ]
 
         # Log simulated launch
@@ -216,9 +355,6 @@ class JobRunner:
             await job_store.save_job(job)
             with open(stdout_log_path, "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.now(timezone.utc).isoformat()}] Stage {stage_name} completed ({progress_val}%)\n")
-
-        # Create mock output deliverables
-        self._ensure_artifacts(job.job_id, artifacts_dir, job.request.get("aspect_ratios", ["16:9"]))
 
     async def _run_headless_agy(
         self,

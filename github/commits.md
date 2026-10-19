@@ -4,12 +4,13 @@
 
 ```bash
 git add .
-git commit -m "feat(remotion): make scene titles, headlines, and visual cues 100% dynamic from script
+git commit -m "feat(remotion): connect automated multi-ratio remotion rendering into background job lifecycle
 
-- Remove generic placeholder titles from incubrix/audio.py segment_script_into_scenes
-- Update BrollVideo.tsx FallbackPlateScene to render dynamic headline, topic badge, and visual cue directly from scene data
-- Support full video footage layers and dynamic developer visual components without hardcoded text
-- Verified 27 automated tests passing and rendered frame-accurate still"
+- Integrate render_remotion_ratio into JobRunner for all requested aspect ratios
+- Save rendered videos directly to artifacts/video_{ratio}.mp4
+- Add ffprobe playback and duration verification to prevent false-positive completions
+- Add tests/test_remotion_rendering.py covering mock multi-ratio, failure handling, and real 1080p Remotion render
+- Verify 31 automated tests passing and live API artifact retrieval"
 ```
 
 ---
@@ -18,11 +19,9 @@ git commit -m "feat(remotion): make scene titles, headlines, and visual cues 100
 
 * **Type:** `feat`
 * **Scope:** `remotion`
-* **Title:** `make scene titles, headlines, and visual cues 100% dynamic from script`
+* **Title:** `connect automated multi-ratio remotion rendering into background job lifecycle`
 * **Files Included:**
-  * `incubrix/audio.py`: Dynamic title extraction from sentence tokens in `segment_script_into_scenes`
-  * `remotion/BrollVideo.tsx`: Dynamic headline, topic badge, and visual cue rendering in `FallbackPlateScene`
-  * `remotion/components/Counter.tsx`: Stat counter with cubic easing for metric scenes
-  * `remotion/components/Cross.tsx`: SVG danger cross mark for friction scenes
-  * `phase.md`: Updated Phase 3 Task 3.1 documentation
+  * `incubrix/runner.py`: Automatic Remotion render integration, path resolution, and ffprobe validation
+  * `tests/test_remotion_rendering.py`: Test suite for automated multi-ratio rendering, error cases, and real Remotion export
+  * `phase.md`: Documented Phase 3 Task 3.2 completion and test verification
   * `github/commits.md`: Single commit tracking file

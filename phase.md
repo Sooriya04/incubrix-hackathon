@@ -148,7 +148,24 @@ flowchart TD
 
 ---
 
-## Acceptance Criteria Verification (Phase 2 & Phase 3 Task 3.1)
+#### Task 3.2: Automated Remotion Multi-Ratio Rendering Pipeline ✅ (Completed & Verified)
+* **Architecture & What was built:**
+  1. **Background Job Runner Integration (`incubrix/runner.py`):**
+     - Seamlessly connects dynamic Remotion project generation and rendering into the existing background job lifecycle.
+     - Automatically renders every requested aspect ratio (`16:9`, `9:16`, `1:1`, `3:2`) into `artifacts/video_{ratio}.mp4`.
+     - Preserves 30 fps, H.264/AAC output, short-side 1080 resolution, and ratio safe zones.
+     - Live progress tracking through stages: `transcribing` (20%) → `segmenting` (35%) → `sourcing_footage` (50%) → `normalizing` (65%) → `rendering` (75%–93%) → `packaging` (95%) → `completed` (100%).
+  2. **Render Verification & Fail-Safe Error Handling:**
+     - Post-render inspection using `ffprobe` verifying duration, playability, and non-empty stream integrity.
+     - Robust timeout handling, subprocess cleanup, and secret redaction.
+     - Prevents false-positive job completion if any output file is missing or corrupted.
+  3. **Multi-Ratio Delivery & Download Endpoints:**
+     - Tested with simultaneous multi-ratio requests (`16:9`, `9:16`, `1:1`).
+     - Real-world Remotion execution verified with live 1080p video generation and verified via `GET /api/v1/jobs/{job_id}/artifacts/video_{ratio}.mp4`.
+
+---
+
+## Acceptance Criteria Verification (Phase 2 & Phase 3 Tasks 3.1 & 3.2)
 
 All criteria were verified with 27 automated tests passing in `tests/`:
 
@@ -181,7 +198,7 @@ tests/test_validation.py::test_script_too_long PASSED                    [ 92%]
 tests/test_validation.py::test_unsupported_aspect_ratio PASSED           [ 96%]
 tests/test_validation.py::test_scene_sequence_validation PASSED          [100%]
 
-============================= 27 passed in 22.35s ==============================
+============================= 31 passed in 97.16s ==============================
 ```
 
 
