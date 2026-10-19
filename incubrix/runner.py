@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from incubrix.audio import build_audio_pipeline, process_job_audio
 from incubrix.config import settings
 from incubrix.models import ErrorDetail, JobArtifacts, JobRecord
 from incubrix.storage import job_store
@@ -96,6 +97,23 @@ class JobRunner:
         is_mock = settings.AGY_MOCK or not Path(settings.AGY_BIN_PATH).exists()
 
         try:
+            # Phase 2 Audio Generation Pipeline
+            job.stage = "transcribing"
+            job.progress = 20
+            await job_store.save_job(job)
+
+            await process_job_audio(
+                job_id=job.job_id,
+                job_request=job.request,
+                workspace_dir=workspace_dir,
+                artifacts_dir=artifacts_dir,
+                mock=is_mock,
+            )
+
+            job.stage = "segmenting"
+            job.progress = 35
+            await job_store.save_job(job)
+
             if is_mock:
                 await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
             else:
@@ -181,7 +199,6 @@ class JobRunner:
     ) -> None:
         """Deterministic mock pipeline for fast, credential-free testing."""
         stages = [
-            ("segmenting", 25, 0.05),
             ("sourcing_footage", 50, 0.05),
             ("normalizing", 75, 0.05),
             ("rendering", 90, 0.05),
