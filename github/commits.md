@@ -4,14 +4,14 @@
 
 ```bash
 git add .
-git commit -m "feat(audio): implement Phase 2 Task 2.2 audio voiceover and subtitle alignment engine
+git commit -m "feat(remotion): implement Phase 3 Task 3.1 dynamic Remotion project generation and multi-ratio composition
 
-- Implement neural TTS synthesis via edge-tts with Indian English (Neerja/Prabhat) and US voices
-- Mirror file structure from /media/workspace/shorts/decision_model_ms (scene_*.mp3, voiceover.mp3, sceneMetadata.json, subtitles.json, captions.json)
-- Implement instant duration-weighted word boundary alignment (<1ms) replacing heavy Whisper STT
-- Generate standard SubRip Subtitle file (captions.srt) and contract-compliant timeline.json / manifest.json
-- Wire process_job_audio into background JobRunner execution pipeline
-- Add comprehensive test suite in tests/test_audio.py (26 total test cases passing)"
+- Create BrollVideo.tsx and Root.tsx supporting 16:9, 9:16, 1:1, and 3:2 aspect ratios
+- Implement flat-plate visual standards (zero gradients, zero glow/blur, tokenized plate/ink/accent)
+- Add safe zone enforcement (e.g. keeping 9:16 bottom 22% clear) and solid-plate burned-in captions
+- Implement setup_job_remotion_project harness in incubrix/project_generator.py for concurrent workspace isolation
+- Add validate_job_remotion_project checking voiceover, captions, and source files prior to rendering
+- Add tests in tests/test_dynamic_project.py verifying distinct configurations for different scripts (27 tests passing)"
 ```
 
 ---
@@ -19,11 +19,15 @@ git commit -m "feat(audio): implement Phase 2 Task 2.2 audio voiceover and subti
 ## Commit Details
 
 * **Type:** `feat`
-* **Scope:** `audio`
-* **Title:** `implement Phase 2 Task 2.2 audio voiceover and subtitle alignment engine`
+* **Scope:** `remotion`
+* **Title:** `implement Phase 3 Task 3.1 dynamic Remotion project generation and multi-ratio composition`
 * **Files Included:**
-  * `incubrix/audio.py`: Speech synthesis, scene segmentation, duration-weighted word boundary alignment, unified audio concatenator, and caption/timeline/manifest generator
-  * `incubrix/runner.py`: Pipeline integration wiring `process_job_audio` directly into `run_job`
-  * `tests/test_audio.py`: 7 unit and integration tests covering SRT timestamps, script segmentation, word boundaries, pipeline generation, and artifact consistency
-  * `phase.md`: Phase 2 implementation documentation and verification logs
-  * `github/commits.md`: Single commit tracking documentation
+  * `remotion/BrollVideo.tsx`: Core composition component rendering timed scenes, flat plate fallbacks, and burned-in captions with active-word highlights
+  * `remotion/Root.tsx`: Composition registry parameterizing `Broll-16x9`, `Broll-9x16`, `Broll-1x1`, and `Broll-3x2`
+  * `remotion/ratios.ts`: Multi-aspect-ratio config system (dimensions, safe zones, margins, caption scales)
+  * `remotion/theme.ts`: Tokenized color palette (`developer`, `ink`, `paper`, `signal`) and typography definitions
+  * `remotion/index.ts`: Entrypoint registering root composition
+  * `incubrix/project_generator.py`: Dynamic workspace harness configuring isolated Remotion projects and pre-render validation
+  * `tests/test_dynamic_project.py`: Multi-script isolation tests and project validation tests (27 total passing tests)
+  * `phase.md`: Updated Phase 3 Task 3.1 progress documentation
+  * `github/commits.md`: Single commit documentation

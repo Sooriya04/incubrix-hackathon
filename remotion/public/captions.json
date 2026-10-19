@@ -1,0 +1,141 @@
+{
+  "fps": 30,
+  "totalFrames": 239,
+  "totalDurationSec": 7.94,
+  "scenes": [
+    {
+      "id": 1,
+      "name": "Scene01",
+      "title": "SCENE 01",
+      "subtitle": "Saving money does not have to be hard.",
+      "audioFile": "audio/scene_01.mp3",
+      "durationSec": 3.38,
+      "startFrame": 0,
+      "durationInFrames": 108,
+      "startTimeSec": 0.0,
+      "voiceText": "Saving money does not have to be hard.",
+      "visual_hint": "Saving money does not have to be hard."
+    },
+    {
+      "id": 2,
+      "name": "Scene02",
+      "title": "SCENE 02",
+      "subtitle": "Start tracking today.",
+      "audioFile": "audio/scene_02.mp3",
+      "durationSec": 2.35,
+      "startFrame": 108,
+      "durationInFrames": 131,
+      "startTimeSec": 3.58,
+      "voiceText": "Start tracking today.",
+      "visual_hint": "Start tracking today."
+    }
+  ],
+  "segments": [
+    {
+      "sceneId": 1,
+      "text": "Saving money does not have to be hard.",
+      "start": 0.0,
+      "end": 3.38,
+      "startFrame": 0,
+      "durationInFrames": 108
+    },
+    {
+      "sceneId": 2,
+      "text": "Start tracking today.",
+      "start": 3.58,
+      "end": 5.94,
+      "startFrame": 108,
+      "durationInFrames": 131
+    }
+  ],
+  "words": [
+    {
+      "word": "Saving",
+      "start": 0.05,
+      "end": 0.69,
+      "startFrame": 2,
+      "endFrame": 21,
+      "sceneId": 1
+    },
+    {
+      "word": "money",
+      "start": 0.69,
+      "end": 1.22,
+      "startFrame": 21,
+      "endFrame": 37,
+      "sceneId": 1
+    },
+    {
+      "word": "does",
+      "start": 1.22,
+      "end": 1.64,
+      "startFrame": 37,
+      "endFrame": 49,
+      "sceneId": 1
+    },
+    {
+      "word": "not",
+      "start": 1.64,
+      "end": 1.96,
+      "startFrame": 49,
+      "endFrame": 59,
+      "sceneId": 1
+    },
+    {
+      "word": "have",
+      "start": 1.96,
+      "end": 2.38,
+      "startFrame": 59,
+      "endFrame": 71,
+      "sceneId": 1
+    },
+    {
+      "word": "to",
+      "start": 2.38,
+      "end": 2.59,
+      "startFrame": 71,
+      "endFrame": 78,
+      "sceneId": 1
+    },
+    {
+      "word": "be",
+      "start": 2.59,
+      "end": 2.8,
+      "startFrame": 78,
+      "endFrame": 84,
+      "sceneId": 1
+    },
+    {
+      "word": "hard.",
+      "start": 2.8,
+      "end": 3.33,
+      "startFrame": 84,
+      "endFrame": 100,
+      "sceneId": 1
+    },
+    {
+      "word": "Start",
+      "start": 3.63,
+      "end": 4.22,
+      "startFrame": 109,
+      "endFrame": 127,
+      "sceneId": 2
+    },
+    {
+      "word": "tracking",
+      "start": 4.22,
+      "end": 5.17,
+      "startFrame": 127,
+      "endFrame": 155,
+      "sceneId": 2
+    },
+    {
+      "word": "today.",
+      "start": 5.17,
+      "end": 5.88,
+      "startFrame": 155,
+      "endFrame": 176,
+      "sceneId": 2
+    }
+  ]
+}

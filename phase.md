@@ -127,46 +127,61 @@ flowchart TD
 - Apply negative constraints (`avoid`) and enforce commercial clearance licenses.
 
 #### Task 2.5: Remotion / FFmpeg Video Composition & Subtitle Burn-In ⏳ (Upcoming)
-- Assemble multi-aspect-ratio compositions (`16:9`, `9:16`, `1:1`).
-- Burn in subtitles and export H.264/AAC 30fps videos.
+### Phase 3: Remotion Video Composition & Rendering
 
-#### Task 2.6: Delivery Packaging & Manifest Generation ⏳ (Upcoming)
-- Compile final `timeline.json` (scene provenance and scores) and `manifest.json` (cost breakdown, provider audit, and timings).
+#### Task 3.1: Dynamic Remotion Project Generation & Multi-Ratio Composition ✅ (Completed & Verified)
+* **Architecture & What was built:**
+  1. **Workspace Project Harness (`incubrix/project_generator.py`):**
+     - Dynamically configures isolated, concurrent-safe Remotion project workspaces per job at `data/jobs/{job_id}/workspace`.
+     - Reuses shared core TSX components (`Root.tsx`, `BrollVideo.tsx`, `ratios.ts`, `theme.ts`), node_modules, and fonts via symlinks to prevent code duplication or disk bloat.
+     - Isolates all job assets (`public/audio/scene_*.mp3`, `public/voiceover.mp3`, `public/captions.json`, `captions.json`, `job_config.json`).
+  2. **Multi-Ratio Composition Engine (`remotion/BrollVideo.tsx` & `remotion/Root.tsx`):**
+     - Single reusable component rendering `16:9` (1920×1080), `9:16` (1080×1920), `1:1` (1080×1080), and `3:2` (1620×1080).
+     - Flat-plate anti-AI-slop standard: zero gradients, blurs, glows, or emojis.
+     - Burned-in captions on solid plate with active-word highlighting from reliable word timestamps.
+     - Enforces safe zones per ratio (keeping the bottom 22% of 9:16 clear of text).
+     - Neutral, explicit fallback plate when scene footage is not assigned.
+  3. **Pre-Render Validation (`validate_job_remotion_project`):**
+     - Verifies presence and non-emptiness of `public/voiceover.mp3`, `captions.json`, scene frame bounds, and TSX component files before rendering starts.
+  4. **Multi-Script Isolation Verification (`tests/test_dynamic_project.py`):**
+     - Verified with two completely distinct scripts (2-scene and 3-scene), confirming distinct durations, frame counts, text, and zero cross-job pollution.
 
 ---
 
-## Acceptance Criteria Verification (Task 2.1 & Task 2.2)
+## Acceptance Criteria Verification (Phase 2 & Phase 3 Task 3.1)
 
-All criteria were verified with 26 automated tests passing in `tests/`:
+All criteria were verified with 27 automated tests passing in `tests/`:
 
 ```
-tests/test_audio.py::test_format_srt_timestamp PASSED                     [  4%]
-tests/test_audio.py::test_segment_script_into_scenes PASSED               [  8%]
-tests/test_audio.py::test_extract_scenes_from_request PASSED              [ 12%]
-tests/test_audio.py::test_compute_word_timings PASSED                     [ 15%]
-tests/test_audio.py::test_synthesize_scene_audio_mock PASSED              [ 19%]
-tests/test_audio.py::test_build_audio_pipeline PASSED                     [ 23%]
-tests/test_audio.py::test_process_job_audio_integration PASSED            [ 27%]
-tests/test_headless_agy.py::test_live_headless_agy_execution PASSED      [ 31%]
-tests/test_idempotency.py::test_idempotent_retry_returns_same_job PASSED [ 35%]
-tests/test_idempotency.py::test_idempotent_conflict_on_different_payload PASSED [ 38%]
-tests/test_lifecycle.py::test_job_submission_and_lifecycle PASSED        [ 42%]
-tests/test_lifecycle.py::test_job_persistence_across_restart PASSED      [ 46%]
-tests/test_runner_failures.py::test_secret_redaction PASSED              [ 50%]
-tests/test_runner_failures.py::test_job_failure_on_process_crash PASSED  [ 54%]
-tests/test_runner_failures.py::test_job_failure_on_timeout PASSED        [ 58%]
-tests/test_validation.py::test_health_and_ready PASSED                   [ 62%]
-tests/test_validation.py::test_missing_idempotency_key_in_strict_mode PASSED [ 65%]
-tests/test_validation.py::test_auto_generated_uuid7_idempotency_key PASSED [ 69%]
-tests/test_validation.py::test_invalid_json_body PASSED                  [ 73%]
-tests/test_validation.py::test_strict_xor_primary_input_mode_none PASSED [ 77%]
-tests/test_validation.py::test_strict_xor_primary_input_mode_multiple PASSED [ 81%]
-tests/test_validation.py::test_empty_script_validation PASSED            [ 85%]
-tests/test_validation.py::test_script_too_long PASSED                    [ 88%]
-tests/test_validation.py::test_unsupported_aspect_ratio PASSED           [ 92%]
-tests/test_validation.py::test_scene_sequence_validation PASSED          [ 96%]
+tests/test_audio.py::test_format_srt_timestamp PASSED                     [  3%]
+tests/test_audio.py::test_segment_script_into_scenes PASSED               [  7%]
+tests/test_audio.py::test_extract_scenes_from_request PASSED              [ 11%]
+tests/test_audio.py::test_compute_word_timings PASSED                     [ 14%]
+tests/test_audio.py::test_synthesize_scene_audio_mock PASSED              [ 18%]
+tests/test_audio.py::test_build_audio_pipeline PASSED                     [ 22%]
+tests/test_audio.py::test_process_job_audio_integration PASSED            [ 25%]
+tests/test_dynamic_project.py::test_dynamic_project_generation_two_distinct_scripts PASSED [ 29%]
+tests/test_dynamic_project.py::test_validate_job_remotion_project_fails_on_missing_files PASSED [ 33%]
+tests/test_headless_agy.py::test_live_headless_agy_execution PASSED      [ 37%]
+tests/test_idempotency.py::test_idempotent_retry_returns_same_job PASSED [ 40%]
+tests/test_idempotency.py::test_idempotent_conflict_on_different_payload PASSED [ 44%]
+tests/test_lifecycle.py::test_job_submission_and_lifecycle PASSED        [ 48%]
+tests/test_lifecycle.py::test_job_persistence_across_restart PASSED      [ 51%]
+tests/test_runner_failures.py::test_secret_redaction PASSED              [ 55%]
+tests/test_runner_failures.py::test_job_failure_on_process_crash PASSED  [ 59%]
+tests/test_runner_failures.py::test_job_failure_on_timeout PASSED        [ 62%]
+tests/test_validation.py::test_health_and_ready PASSED                   [ 66%]
+tests/test_validation.py::test_missing_idempotency_key_in_strict_mode PASSED [ 70%]
+tests/test_validation.py::test_auto_generated_uuid7_idempotency_key PASSED [ 74%]
+tests/test_validation.py::test_invalid_json_body PASSED                  [ 77%]
+tests/test_validation.py::test_strict_xor_primary_input_mode_none PASSED [ 81%]
+tests/test_validation.py::test_strict_xor_primary_input_mode_multiple PASSED [ 85%]
+tests/test_validation.py::test_empty_script_validation PASSED            [ 88%]
+tests/test_validation.py::test_script_too_long PASSED                    [ 92%]
+tests/test_validation.py::test_unsupported_aspect_ratio PASSED           [ 96%]
 tests/test_validation.py::test_scene_sequence_validation PASSED          [100%]
 
-============================= 26 passed in 35.80s ==============================
+============================= 27 passed in 22.35s ==============================
 ```
+
 
