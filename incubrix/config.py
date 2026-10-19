@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     JOBS_DIR: Path = Field(default=Path("./data/jobs"))
     STORAGE_DIR: Path = Field(default=Path("./data/storage"))
     CACHE_DIR: Path = Field(default=Path("./data/cache"))
+    RENDERS_DIR: Path = Field(default=Path("./renders"))
     AGY_BIN_PATH: str = Field(
         default_factory=lambda: shutil.which("agy") or "/home/sooriya/.local/bin/agy"
     )
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
         self.JOBS_DIR.mkdir(parents=True, exist_ok=True)
         self.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
         self.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        self.RENDERS_DIR.mkdir(parents=True, exist_ok=True)
         self.JOBS_DIR.parent.mkdir(parents=True, exist_ok=True)
         (self.STORAGE_DIR / "uploads").mkdir(parents=True, exist_ok=True)
 

@@ -122,7 +122,7 @@ async def render_remotion_ratio(
 
     if proc.returncode != 0:
         stderr_msg = redact_secrets(stderr_data.decode("utf-8", errors="replace"))
-        err = RuntimeError(f"Remotion render failed with exit code {proc.returncode}: {stderr_msg[:300]}")
+        err = RuntimeError(f"Remotion render failed with exit code {proc.returncode}: {stderr_msg}")
         setattr(err, "exit_code", proc.returncode)
         raise err
 
@@ -177,15 +177,26 @@ class JobRunner:
         job.progress = 10
         await job_store.save_job(job)
 
-        # 2. Setup job directory structure
+        # 2. Setup job directory structure & central renders directory
         job_dir = settings.JOBS_DIR / job_id
         logs_dir = job_dir / "logs"
-        workspace_dir = job_dir / "workspace"
         artifacts_dir = job_dir / "artifacts"
 
+        # Central renders directory: each job gets its dedicated sub-directory inside RENDERS_DIR
+        renders_job_dir = settings.RENDERS_DIR / job_id
+        renders_job_dir.mkdir(parents=True, exist_ok=True)
+        workspace_dir = renders_job_dir
+
         logs_dir.mkdir(parents=True, exist_ok=True)
-        workspace_dir.mkdir(parents=True, exist_ok=True)
         artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create workspace symlink inside job_dir for backwards compatibility
+        job_workspace_link = job_dir / "workspace"
+        if not job_workspace_link.exists():
+            try:
+                os.symlink(renders_job_dir.resolve(), job_workspace_link)
+            except Exception:
+                job_workspace_link.mkdir(parents=True, exist_ok=True)
 
         input_path = job_dir / "input.json"
         with open(input_path, "w", encoding="utf-8") as f:
@@ -314,10 +325,30 @@ class JobRunner:
                     mock=is_mock,
                 )
 
+                # Ensure renders_job_dir has video directly
+                render_video_out = renders_job_dir / f"video_{safe_name}.mp4"
+                if video_out.exists():
+                    shutil.copyfile(video_out, render_video_out)
+                    out_mp4 = renders_job_dir / "out.mp4"
+                    if not out_mp4.exists():
+                        try:
+                            shutil.copyfile(video_out, out_mp4)
+                        except Exception:
+                            pass
+
             # 5. Packaging stage
             job.stage = "packaging"
             job.progress = 95
             await job_store.save_job(job)
+
+            # Copy all metadata artifacts into renders_job_dir
+            for fname in ["timeline.json", "manifest.json", "captions.srt"]:
+                fsrc = artifacts_dir / fname
+                if fsrc.exists():
+                    try:
+                        shutil.copyfile(fsrc, renders_job_dir / fname)
+                    except Exception:
+                        pass
 
             # Execution succeeded
             end_time = time.monotonic()

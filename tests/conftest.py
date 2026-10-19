@@ -25,9 +25,12 @@ def isolated_storage(monkeypatch):
 
     test_jobs_dir.mkdir(parents=True, exist_ok=True)
     test_storage_dir.mkdir(parents=True, exist_ok=True)
+    test_renders_dir = temp_dir / "renders"
+    test_renders_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(settings, "JOBS_DIR", test_jobs_dir)
     monkeypatch.setattr(settings, "STORAGE_DIR", test_storage_dir)
+    monkeypatch.setattr(settings, "RENDERS_DIR", test_renders_dir)
     monkeypatch.setattr(settings, "AGY_MOCK", True)  # Default to fast mock harness
 
     # Re-initialize job_store with test paths

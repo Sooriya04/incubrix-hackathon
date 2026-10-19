@@ -278,6 +278,23 @@ async def build_audio_pipeline(
         }
         metadata["scenes"].append(scene_info)
         concat_files.append(out_file)
+        if not is_last:
+            pad_wav = public_audio_dir / f"pad_{scene_id:02d}.wav"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f", "lavfi",
+                    "-i", "anullsrc=r=24000:cl=mono",
+                    "-t", "0.2",
+                    "-c:a", "pcm_s16le",
+                    str(pad_wav),
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            concat_files.append(pad_wav)
 
         # Word-level timing calculated directly from TTS duration and text
         scene_words = compute_word_timings(duration, voice_text)

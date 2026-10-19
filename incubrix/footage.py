@@ -176,7 +176,8 @@ async def generate_mock_clip(out_path: Path, duration_sec: float = 3.0) -> Path:
         "-y",
         "-f", "lavfi", "-i", f"color=c=0x1A202C:s=1280x720:r=30",
         "-t", str(max(1.0, duration_sec)),
-        "-c:v", "mpeg4",
+        "-c:v", "libopenh264",
+        "-pix_fmt", "yuv420p",
         str(out_path),
     ]
     proc = await asyncio.create_subprocess_exec(
@@ -243,10 +244,10 @@ async def process_job_footage(
             if hits:
                 best_hit = hits[0]
                 videos_dict = best_hit.get("videos", {})
-                # Choose highest resolution available
+                # Choose medium resolution (1080p/720p) over massive 4K large to avoid memory bottlenecks
                 v_choice = (
-                    videos_dict.get("large")
-                    or videos_dict.get("medium")
+                    videos_dict.get("medium")
+                    or videos_dict.get("large")
                     or videos_dict.get("small")
                     or {}
                 )

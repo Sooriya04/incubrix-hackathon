@@ -13,10 +13,10 @@ export const Root: React.FC = () => {
         const cfg = RATIOS[k];
 
         return (
-          <Composition<BrollVideoProps>
+          <Composition
             key={k}
             id={cfg.id}
-            component={BrollVideo}
+            component={BrollVideo as React.FC<any>}
             width={cfg.w}
             height={cfg.h}
             fps={30}
@@ -28,7 +28,7 @@ export const Root: React.FC = () => {
               audioSrc: 'voiceover.mp3',
             }}
             calculateMetadata={async ({ props }) => {
-              const frames = props?.captions?.totalFrames || captionsData?.totalFrames || 240;
+              const frames = (props as any)?.captions?.totalFrames || captionsData?.totalFrames || 240;
               return {
                 durationInFrames: frames,
               };

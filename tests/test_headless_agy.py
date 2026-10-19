@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from incubrix.config import settings
+from incubrix.runner import render_remotion_ratio
 
 
 @pytest.mark.asyncio
@@ -20,7 +21,15 @@ async def test_live_headless_agy_execution(client: httpx.AsyncClient, isolated_s
     # Configure runner to use real agy binary instead of mock
     monkeypatch.setattr(settings, "AGY_BIN_PATH", agy_path)
     monkeypatch.setattr(settings, "AGY_MOCK", False)
-    monkeypatch.setattr(settings, "JOB_TIMEOUT_SECONDS", 60)
+    monkeypatch.setattr(settings, "JOB_TIMEOUT_SECONDS", 120)
+
+    # Fast video generation to focus test on agy CLI execution (video rendering is tested in test_remotion_rendering.py)
+    original_render = render_remotion_ratio
+
+    async def _fast_render(workspace_dir, composition_id, output_mp4, timeout_seconds, mock):
+        return await original_render(workspace_dir, composition_id, output_mp4, timeout_seconds, mock=True)
+
+    monkeypatch.setattr("incubrix.runner.render_remotion_ratio", _fast_render)
 
     headers = {"Idempotency-Key": "live-headless-agy-001"}
     payload = {"script": "Test harmless headless task for video engine verification."}
@@ -28,9 +37,9 @@ async def test_live_headless_agy_execution(client: httpx.AsyncClient, isolated_s
     assert res.status_code == 202
     job_id = res.json()["job_id"]
 
-    # Poll status until terminal state (real LLM turn can take 20-40s)
+    # Poll status until terminal state (real LLM turn + render takes 40-70s)
     data = None
-    for _ in range(90):
+    for _ in range(120):
         res_get = await client.get(f"/api/v1/jobs/{job_id}")
         assert res_get.status_code == 200
         data = res_get.json()

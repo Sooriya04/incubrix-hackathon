@@ -83,7 +83,7 @@ def setup_job_remotion_project(
         dest = workspace_dir / fname
         src = SHARED_REMOTION_DIR / fname
         if not dest.exists() and src.exists():
-            os.symlink(src.resolve(), dest)
+            shutil.copyfile(src.resolve(), dest)
 
     # 4. Symlink package.json, tsconfig.json, remotion.config.ts from root
     root_dir = SHARED_REMOTION_DIR.parent

@@ -1,11 +1,11 @@
 import React from 'react';
 import {
   Audio,
-  OffthreadVideo,
   Sequence,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
+  Video,
 } from 'remotion';
 import { RATIOS, RatioKey } from './ratios';
 import { FONTS, ThemeName, THEMES } from './theme';
@@ -23,6 +23,7 @@ export interface SceneData {
   durationSec?: number;
   visual_hint?: string | null;
   footageUrl?: string | null;
+  audioFile?: string | null;
   clip?: {
     source_url?: string;
     source_provider?: string;
@@ -232,8 +233,8 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
         }
       `}</style>
 
-      {/* Narration audio track */}
-      {audioSrc && <Audio src={staticFile(audioSrc)} />}
+      {/* Fallback global narration audio track if per-scene audio is not available */}
+      {audioSrc && !scenes.some((s) => s.audioFile) && <Audio src={staticFile(audioSrc)} />}
 
       {/* Timed scene sequence layer */}
       {scenes.map((scene) => {
@@ -251,8 +252,11 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
             durationInFrames={scene.durationInFrames}
             name={scene.name}
           >
+            {/* Lockstep scene-synchronized narration audio */}
+            {scene.audioFile && <Audio src={staticFile(scene.audioFile)} />}
+
             {footageSrc ? (
-              <OffthreadVideo
+              <Video
                 src={footageSrc}
                 muted
                 style={{
