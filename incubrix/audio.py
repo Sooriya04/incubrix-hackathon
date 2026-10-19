@@ -54,12 +54,14 @@ def segment_script_into_scenes(script: str) -> List[Dict[str, Any]]:
 
     scenes = []
     for idx, sentence in enumerate(raw_sentences, 1):
+        words = sentence.split()
+        short_title = " ".join(words[:min(4, len(words))]).rstrip(",.!?")
         scenes.append({
             "id": idx,
             "name": f"Scene{idx:02d}",
-            "title": f"SCENE {idx:02d}",
+            "title": short_title.upper() if short_title else f"SCENE {idx:02d}",
             "text": sentence,
-            "visual_hint": sentence[:60],
+            "visual_hint": sentence[:80],
         })
     return scenes
 

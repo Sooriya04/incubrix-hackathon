@@ -74,8 +74,10 @@ const FallbackPlateScene: React.FC<{
   theme: (typeof THEMES)[ThemeName];
   cfg: (typeof RATIOS)[RatioKey];
 }> = ({ scene, ratio, theme, cfg }) => {
-  const displayText = scene.title || scene.text || scene.voiceText || `Scene ${scene.id}`;
   const isVertical = ratio === '9:16';
+  const headline = scene.text || scene.voiceText || scene.title || `Scene ${scene.id}`;
+  const sceneNum = scene.id < 10 ? `0${scene.id}` : `${scene.id}`;
+  const badgeLabel = scene.title || `SCENE ${sceneNum}`;
 
   return (
     <div
@@ -89,7 +91,7 @@ const FallbackPlateScene: React.FC<{
         justifyContent: isVertical ? 'flex-start' : 'center',
         alignItems: 'center',
         padding: `${cfg.margin}px`,
-        paddingTop: isVertical ? '200px' : `${cfg.margin}px`,
+        paddingTop: isVertical ? '220px' : `${cfg.margin}px`,
         position: 'relative',
         boxSizing: 'border-box',
       }}
@@ -107,25 +109,26 @@ const FallbackPlateScene: React.FC<{
         }}
       />
 
-      {/* Explicit status badge */}
+      {/* Dynamic scene badge */}
       <div
         style={{
           fontFamily: FONTS.mono,
-          fontSize: '14px',
-          color: theme.muted,
+          fontSize: '15px',
+          color: theme.accent,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           marginBottom: '28px',
-          padding: '6px 14px',
+          padding: '6px 16px',
           border: `1px solid ${theme.line}`,
           backgroundColor: theme.surface,
           borderRadius: '4px',
+          fontWeight: 600,
         }}
       >
-        [SCENE {scene.id < 10 ? `0${scene.id}` : scene.id} · NO FOOTAGE ASSIGNED]
+        [SCENE {sceneNum} · {badgeLabel}]
       </div>
 
-      {/* Main typographic headline */}
+      {/* Main dynamic narration headline */}
       <div
         style={{
           fontFamily: FONTS.sans,
@@ -133,16 +136,16 @@ const FallbackPlateScene: React.FC<{
           fontWeight: 700,
           lineHeight: 1.15,
           textAlign: 'center',
-          maxWidth: '90%',
+          maxWidth: '92%',
           color: theme.ink,
-          marginBottom: '20px',
+          marginBottom: '24px',
         }}
       >
-        {displayText}
+        {headline}
       </div>
 
-      {/* Semantic cue / visual hint */}
-      {scene.visual_hint && (
+      {/* Semantic visual cue / hint */}
+      {scene.visual_hint && scene.visual_hint !== headline && (
         <div
           style={{
             fontFamily: FONTS.mono,
@@ -151,6 +154,10 @@ const FallbackPlateScene: React.FC<{
             textAlign: 'center',
             maxWidth: '80%',
             lineHeight: 1.4,
+            padding: '10px 18px',
+            backgroundColor: theme.surface,
+            border: `1px solid ${theme.line}`,
+            borderRadius: '6px',
           }}
         >
           // Cue: {scene.visual_hint}
@@ -159,6 +166,7 @@ const FallbackPlateScene: React.FC<{
     </div>
   );
 };
+
 
 export const BrollVideo: React.FC<BrollVideoProps> = ({
   ratio = '16:9',
