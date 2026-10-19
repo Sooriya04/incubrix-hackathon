@@ -16,6 +16,7 @@ import httpx
 
 from incubrix.audio import build_audio_pipeline, process_job_audio
 from incubrix.config import settings
+from incubrix.footage import process_job_footage
 from incubrix.models import ErrorDetail, JobArtifacts, JobRecord
 from incubrix.project_generator import setup_job_remotion_project
 from incubrix.storage import job_store
@@ -214,7 +215,70 @@ class JobRunner:
             job.progress = 35
             await job_store.save_job(job)
 
-            # 2. Phase 3 Dynamic Remotion Project Harness Setup
+            # 2. Phase 2/3 Footage Discovery (Pixabay / Mock with disk cache and rate limits)
+            job.stage = "sourcing_footage"
+            job.progress = 50
+            await job_store.save_job(job)
+
+            captions_data = audio_res["captions"]
+            avoid_list = job.request.get("avoid", [])
+            enriched_scenes = await process_job_footage(
+                scenes=captions_data.get("scenes", []),
+                workspace_dir=workspace_dir,
+                avoid=avoid_list,
+                mock=is_mock,
+            )
+            captions_data["scenes"] = enriched_scenes
+
+            # Dynamic timeline.json generation
+            timeline_file = artifacts_dir / "timeline.json"
+            total_dur_ms = int(captions_data.get("totalDurationSec", 8.0) * 1000)
+            timeline_data = {
+                "timeline_id": f"tl_{job.job_id}",
+                "total_duration_ms": total_dur_ms,
+                "scenes": [
+                    {
+                        "scene_index": idx,
+                        "start_time_ms": int((s.get("startTimeSec") or 0) * 1000),
+                        "end_time_ms": int(((s.get("startTimeSec") or 0) + (s.get("durationSec") or 0)) * 1000),
+                        "duration_ms": int((s.get("durationSec") or 0) * 1000),
+                        "narration_text": s.get("voiceText", ""),
+                        "visual_hint": s.get("visual_hint", ""),
+                        "clip": s.get("clip") or {
+                            "clip_id": f"scene_plate_{idx+1}",
+                            "source_provider": "developer_plates",
+                            "source_url": "",
+                            "license": {
+                                "type": "Internal",
+                                "commercial_use_allowed": True,
+                                "attribution_required": False,
+                            },
+                            "attribution": "IncuBrix Developer Plates",
+                            "is_ai_generated": False,
+                            "generator_model": None,
+                            "trim": {"in_ms": 0, "out_ms": int((s.get("durationSec") or 0) * 1000)},
+                        },
+                        "selection_reason": (s.get("clip") or {}).get("selection_reason", "Dynamic typography plate"),
+                        "relevance_score": (s.get("clip") or {}).get("relevance_score", 4.5),
+                    }
+                    for idx, s in enumerate(enriched_scenes)
+                ],
+            }
+            with open(timeline_file, "w", encoding="utf-8") as f:
+                json.dump(timeline_data, f, indent=2)
+
+            # 3. Normalization & Dynamic Remotion Project Harness Setup
+            job.stage = "normalizing"
+            job.progress = 65
+            await job_store.save_job(job)
+
+            if is_mock:
+                await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
+            else:
+                await self._run_headless_agy(
+                    job, input_path, workspace_dir, artifacts_dir, stdout_log_path, stderr_log_path
+                )
+
             aspect_ratios = job.request.get("aspect_ratios", ["16:9"])
             style_theme = job.request.get("style", "developer")
             valid_themes = ["developer", "ink", "paper", "signal"]
@@ -223,18 +287,10 @@ class JobRunner:
             setup_job_remotion_project(
                 job_id=job.job_id,
                 workspace_dir=workspace_dir,
-                captions_data=audio_res["captions"],
+                captions_data=captions_data,
                 aspect_ratios=aspect_ratios,
                 theme_name=chosen_theme,
             )
-
-            # 3. Sourcing & Normalization Stages
-            if is_mock:
-                await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
-            else:
-                await self._run_headless_agy(
-                    job, input_path, workspace_dir, artifacts_dir, stdout_log_path, stderr_log_path
-                )
 
             # 4. Phase 3 Automatic Remotion Video Rendering for each requested aspect ratio
             job.stage = "rendering"

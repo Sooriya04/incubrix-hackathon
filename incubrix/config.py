@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     JOBS_DIR: Path = Field(default=Path("./data/jobs"))
     STORAGE_DIR: Path = Field(default=Path("./data/storage"))
+    CACHE_DIR: Path = Field(default=Path("./data/cache"))
     AGY_BIN_PATH: str = Field(
         default_factory=lambda: shutil.which("agy") or "/home/sooriya/.local/bin/agy"
     )
@@ -24,6 +25,9 @@ class Settings(BaseSettings):
     WEBHOOK_SECRET: str = Field(default="secret")
     REQUIRE_IDEMPOTENCY_KEY: bool = Field(default=False)
 
+    PIXABAY_API_KEY: Optional[str] = Field(default=None)
+    PEXELS_API_KEY: Optional[str] = Field(default=None)
+
     HOST: str = Field(default="0.0.0.0")
     PORT: int = Field(default=8000)
 
@@ -31,6 +35,7 @@ class Settings(BaseSettings):
         """Ensure all required runtime directories exist."""
         self.JOBS_DIR.mkdir(parents=True, exist_ok=True)
         self.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        self.CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self.JOBS_DIR.parent.mkdir(parents=True, exist_ok=True)
         (self.STORAGE_DIR / "uploads").mkdir(parents=True, exist_ok=True)
 

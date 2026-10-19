@@ -4,13 +4,14 @@
 
 ```bash
 git add .
-git commit -m "feat(remotion): connect automated multi-ratio remotion rendering into background job lifecycle
+git commit -m "feat(footage): implement Pixabay B-roll discovery with rate-limiting, disk caching, and licensing guardrails
 
-- Integrate render_remotion_ratio into JobRunner for all requested aspect ratios
-- Save rendered videos directly to artifacts/video_{ratio}.mp4
-- Add ffprobe playback and duration verification to prevent false-positive completions
-- Add tests/test_remotion_rendering.py covering mock multi-ratio, failure handling, and real 1080p Remotion render
-- Verify 31 automated tests passing and live API artifact retrieval"
+- Implement PixabayClient in incubrix/footage.py with two-tier disk cache (queries & videos)
+- Enforce strict 1 req/sec rate-limiting to prevent 429 quota exhaustion
+- Support negative constraint filtering (avoid list) against video tags
+- Attach real clip licensing, attribution, and trim metadata to timeline.json and manifest.json
+- Update remotion/BrollVideo.tsx OffthreadVideo to seamlessly render downloaded clips with active captions
+- Add tests/test_footage.py with 35 total tests passing across entire repository"
 ```
 
 ---
@@ -18,10 +19,14 @@ git commit -m "feat(remotion): connect automated multi-ratio remotion rendering 
 ## Commit Details
 
 * **Type:** `feat`
-* **Scope:** `remotion`
-* **Title:** `connect automated multi-ratio remotion rendering into background job lifecycle`
+* **Scope:** `footage`
+* **Title:** `implement Pixabay B-roll discovery with rate-limiting, disk caching, and licensing guardrails`
 * **Files Included:**
-  * `incubrix/runner.py`: Automatic Remotion render integration, path resolution, and ffprobe validation
-  * `tests/test_remotion_rendering.py`: Test suite for automated multi-ratio rendering, error cases, and real Remotion export
-  * `phase.md`: Documented Phase 3 Task 3.2 completion and test verification
+  * `incubrix/footage.py`: Pixabay API integration, two-tier cache, rate-limiting, and offline fallback
+  * `incubrix/runner.py`: Pipeline integration for footage discovery, dynamic timeline.json generation
+  * `incubrix/config.py`: PIXABAY_API_KEY, PEXELS_API_KEY, and CACHE_DIR configuration
+  * `remotion/BrollVideo.tsx`: Video source resolution supporting staticFile and downloaded clips
+  * `tests/test_footage.py`: Unit tests for query cleaning, caching, negative constraints, and offline mocks
+  * `.gitignore`: Ensure .env and credentials are never tracked
+  * `phase.md`: Documented Phase 2 Task 2.4 completion and test verification
   * `github/commits.md`: Single commit tracking file

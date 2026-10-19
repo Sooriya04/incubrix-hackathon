@@ -237,7 +237,12 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
 
       {/* Timed scene sequence layer */}
       {scenes.map((scene) => {
-        const footage = scene.footageUrl || scene.clip?.source_url;
+        const rawFootage = scene.footageUrl || scene.clip?.source_url;
+        const footageSrc = rawFootage
+          ? rawFootage.startsWith('http://') || rawFootage.startsWith('https://') || rawFootage.startsWith('/')
+            ? rawFootage
+            : staticFile(rawFootage)
+          : null;
 
         return (
           <Sequence
@@ -246,9 +251,9 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
             durationInFrames={scene.durationInFrames}
             name={scene.name}
           >
-            {footage ? (
+            {footageSrc ? (
               <OffthreadVideo
-                src={footage}
+                src={footageSrc}
                 muted
                 style={{
                   width: '100%',

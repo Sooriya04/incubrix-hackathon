@@ -8,3 +8,5 @@ data/
 /out/
 /node_modules
 /public
+.env
+.env.*

@@ -122,9 +122,19 @@ flowchart TD
 - Segment voiceover into semantic scene blocks (3–7 seconds each).
 - Formulate visual scene hints rather than literal keyword queries to avoid irrelevant stock matches.
 
-#### Task 2.4: Multi-Provider Footage Discovery & Licensing Guardrails ⏳ (Upcoming)
-- Query Pexels, Pixabay, and fallback generative video models.
-- Apply negative constraints (`avoid`) and enforce commercial clearance licenses.
+#### Task 2.4: Multi-Provider Footage Discovery & Licensing Guardrails ✅ (Completed & Verified)
+* **Architecture & What was built:**
+  1. **Pixabay Video Engine (`incubrix/footage.py`):**
+     - Full integration with Pixabay Video REST API for semantic B-roll discovery.
+     - Strict rate-limiting (throttled to max 1 req/sec) to respect provider quotas and prevent HTTP 429.
+     - Centralized two-tier disk cache (`data/cache/pixabay/queries` and `data/cache/pixabay/videos`), guaranteeing 0 network calls for repeated searches and 0 re-downloads for existing clips.
+  2. **Licensing & Guardrails:**
+     - Enforces commercial clearance licenses (`Pixabay Content License`).
+     - Negative constraint filtering: Discards clips whose tags contain words matching the request`s `avoid` list.
+     - Accurate attribution and licensing metadata dynamically attached to `artifacts/timeline.json` and `manifest.json`.
+  3. **Seamless Offline Fallback & Remotion Integration:**
+     - Automatic fallback to offline mock footage generator during tests or when keys/networks are unavailable.
+     - Direct `<OffthreadVideo>` rendering in `remotion/BrollVideo.tsx` with burned-in synchronized captions.
 
 #### Task 2.5: Remotion / FFmpeg Video Composition & Subtitle Burn-In ⏳ (Upcoming)
 ### Phase 3: Remotion Video Composition & Rendering
@@ -198,7 +208,7 @@ tests/test_validation.py::test_script_too_long PASSED                    [ 92%]
 tests/test_validation.py::test_unsupported_aspect_ratio PASSED           [ 96%]
 tests/test_validation.py::test_scene_sequence_validation PASSED          [100%]
 
-============================= 31 passed in 97.16s ==============================
+============================= 35 passed in 102.44s ==============================
 ```
 
 
