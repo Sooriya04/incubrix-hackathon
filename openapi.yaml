@@ -1,0 +1,570 @@
+openapi: 3.1.0
+info:
+  title: IncuBrix Script-to-B-Roll Video Engine API
+  description: >
+    Asynchronous video generation engine transforming scripts, narration audio, or scene lists into
+    license-clean, multi-aspect-ratio B-roll videos with synchronized audio and captions.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development / Docker environment
+
+paths:
+  /api/v1/broll/jobs:
+    post:
+      summary: Submit a new B-roll video job
+      description: >
+        Initiates an asynchronous video rendering job. Clients must provide exactly one primary input mode:
+        `script`, `audio_url` (or uploaded audio via multipart), or `scenes`.
+      operationId: createBrollJob
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Unique client-generated key preventing duplicate job execution upon network retries.
+          schema:
+            type: string
+            maxLength: 128
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          description: Tracing identifier propagated across all log lines and downstream tasks.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobRequest'
+            examples:
+              scriptInput:
+                summary: Text script input
+                value:
+                  script: "Saving money doesn't have to be complicated. It starts with understanding where every rupee goes."
+                  voice: "en-IN-female"
+                  aspect_ratios: ["16:9", "9:16", "1:1"]
+                  style: "bright, modern, real-world footage"
+                  avoid: ["people's faces", "alcohol"]
+                  captions:
+                    burn_in: true
+                    srt: true
+              audioUrlInput:
+                summary: Audio URL voiceover input
+                value:
+                  audio_url: "https://cdn.incubrix.com/audio/voiceover-sample.mp3"
+                  aspect_ratios: ["16:9", "9:16"]
+                  style: "cinematic documentary"
+                  avoid: ["weapons", "distorted text"]
+                  captions:
+                    burn_in: true
+                    srt: true
+              scenesInput:
+                summary: IncuBrix pre-segmented scenes input
+                value:
+                  scenes:
+                    - text: "Trust is built over decades."
+                      visual_hint: "architectural stonework or historic bridge"
+                    - text: "Yet it can be lost in seconds."
+                      visual_hint: "crumbling sands or stormy seas"
+                  aspect_ratios: ["16:9"]
+                  voice: "en-IN-female"
+                  captions:
+                    burn_in: true
+                    srt: true
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MultipartCreateJobRequest'
+      responses:
+        '202':
+          description: Job accepted and queued for processing
+          headers:
+            Location:
+              description: Relative URL to poll job status
+              schema:
+                type: string
+            X-Correlation-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/jobs/{job_id}:
+    get:
+      summary: Retrieve job status and artifacts
+      description: Returns the current execution status, progress, stage, errors, and downloadable artifacts.
+      operationId: getJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Unique job identifier returned during job submission.
+          schema:
+            type: string
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current job status details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/broll/jobs/{job_id}:
+    get:
+      summary: Alias for /api/v1/jobs/{job_id}
+      description: Resource hierarchy alias for polling job status.
+      operationId: getBrollJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current job status details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/broll/jobs/{job_id}/swap-clip:
+    post:
+      summary: Replace a single scene's clip (Advanced Level)
+      description: Performs an incremental re-render replacing one scene's footage while reusing pre-rendered parts.
+      operationId: swapSceneClip
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwapClipRequest'
+      responses:
+        '202':
+          description: Clip swap accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAcceptedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntityError'
+
+  /health:
+    get:
+      summary: Service liveness check
+      description: Returns 200 if the HTTP process is alive.
+      operationId: checkHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /ready:
+    get:
+      summary: Service readiness check
+      description: Returns 200 if workers, database, and storage dependencies are connected.
+      operationId: checkReady
+      responses:
+        '200':
+          description: Service is fully ready to process jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: boolean
+                        example: true
+                      storage:
+                        type: boolean
+                        example: true
+                      queue:
+                        type: boolean
+                        example: true
+        '503':
+          description: One or more dependencies are offline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+components:
+  schemas:
+    CreateJobRequest:
+      type: object
+      description: JSON payload for initiating a B-roll video job.
+      properties:
+        script:
+          type: string
+          nullable: true
+          maxLength: 15000
+          description: Plain text narration for text-to-video. Mutually exclusive with audio_url and scenes.
+        audio_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct download URL to narration audio (MP3, WAV, M4A, <= 10 min). Mutually exclusive.
+        scenes:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/SceneInput'
+          description: IncuBrix pre-segmented scenes with visual hints. Mutually exclusive.
+        voice:
+          type: string
+          nullable: true
+          default: "en-IN-female"
+          description: Voice identifier used for text-to-speech when input is script or scenes.
+        aspect_ratios:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: string
+            enum: ["16:9", "9:16", "1:1"]
+          default: ["16:9"]
+          description: Target aspect ratios for rendering.
+        style:
+          type: string
+          nullable: true
+          maxLength: 300
+          default: "bright, modern, real-world footage"
+          description: Visual aesthetic directive guiding footage curation.
+        avoid:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          default: []
+          description: Negative visual filtering guidelines.
+        captions:
+          $ref: '#/components/schemas/CaptionSettings'
+        callback_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional HTTPS webhook URL invoked upon completion.
+
+    MultipartCreateJobRequest:
+      type: object
+      required:
+        - audio_file
+      properties:
+        audio_file:
+          type: string
+          format: binary
+          description: Narration audio container (.mp3, .wav, or .m4a; max 100MB, max 10 minutes).
+        aspect_ratios:
+          type: array
+          items:
+            type: string
+            enum: ["16:9", "9:16", "1:1"]
+          default: ["16:9"]
+        style:
+          type: string
+          nullable: true
+        avoid:
+          type: array
+          items:
+            type: string
+        captions:
+          $ref: '#/components/schemas/CaptionSettings'
+        callback_url:
+          type: string
+          format: uri
+          nullable: true
+
+    SceneInput:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Spoken narration for this specific scene.
+        visual_hint:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Director note or visual cue for clip matching.
+
+    CaptionSettings:
+      type: object
+      properties:
+        burn_in:
+          type: boolean
+          default: true
+          description: Whether to burn subtitles directly into exported MP4 videos.
+        srt:
+          type: boolean
+          default: true
+          description: Whether to generate an independent captions.srt subtitle file.
+
+    SwapClipRequest:
+      type: object
+      required:
+        - scene_index
+        - replacement_clip_url
+      properties:
+        scene_index:
+          type: integer
+          minimum: 0
+          description: 0-indexed scene to modify.
+        replacement_clip_url:
+          type: string
+          format: uri
+          description: Source URL of the replacement footage clip.
+        visual_hint:
+          type: string
+          nullable: true
+        selection_reason:
+          type: string
+          nullable: true
+
+    JobAcceptedResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - progress
+        - stage
+        - created_at
+        - urls
+      properties:
+        job_id:
+          type: string
+          example: "job_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        status:
+          type: string
+          enum: ["queued"]
+          example: "queued"
+        progress:
+          type: integer
+          example: 0
+        stage:
+          type: string
+          example: "queued"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-19T13:00:00Z"
+        urls:
+          type: object
+          required:
+            - status_url
+          properties:
+            status_url:
+              type: string
+              example: "/api/v1/jobs/job_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+            cancel_url:
+              type: string
+              nullable: true
+              example: "/api/v1/jobs/job_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d/cancel"
+
+    JobStatusResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - progress
+        - stage
+        - created_at
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: ["queued", "running", "succeeded", "failed"]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        stage:
+          type: string
+          enum:
+            - "queued"
+            - "transcribing"
+            - "segmenting"
+            - "sourcing_footage"
+            - "normalizing"
+            - "rendering"
+            - "packaging"
+            - "completed"
+            - "failed"
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: number
+          nullable: true
+        estimated_remaining_seconds:
+          type: integer
+          nullable: true
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+          nullable: true
+        artifacts:
+          $ref: '#/components/schemas/JobArtifacts'
+          nullable: true
+
+    JobArtifacts:
+      type: object
+      required:
+        - videos
+        - captions
+        - timeline
+        - manifest
+      properties:
+        videos:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+          description: Map of aspect ratio (e.g., '16:9', '9:16', '1:1') to download URL.
+        captions:
+          type: string
+          format: uri
+          description: Download URL for captions.srt.
+        timeline:
+          type: string
+          format: uri
+          description: Download URL for timeline.json.
+        manifest:
+          type: string
+          format: uri
+          description: Download URL for manifest.json.
+
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+        - retryable
+      properties:
+        code:
+          type: string
+          example: "INVALID_INPUT_MODE"
+          description: Canonical UPPER_SNAKE_CASE error code.
+        message:
+          type: string
+          example: "Exactly one primary input mode must be specified: script, audio_url, or scenes."
+        retryable:
+          type: boolean
+          example: false
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+  responses:
+    BadRequestError:
+      description: Malformed request or missing required headers
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictError:
+      description: Idempotency key conflict with previous payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Job not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UnprocessableEntityError:
+      description: Semantic validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimitError:
+      description: Too many concurrent requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalServerError:
+      description: Unexpected internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
