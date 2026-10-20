@@ -1,4 +1,4 @@
-# IncuBrix Script-to-B-Roll Video Engine — API Contract
+# IncuBrix Script-to-B-Roll Video Engine  API Contract
 
 **Version:** 1.0.0-draft  
 **Specification Standard:** OpenAPI 3.1 Compatible  

@@ -92,6 +92,39 @@ def build_synthetic_script(topic: str, target_scenes: int, target_words: int) ->
     return "\n\n".join(selected)
 
 
+def calibrate_script_to_duration(text: str, duration_sec: int) -> str:
+    """Calibrate any input script to match target duration (~140 wpm).
+
+    If script is too long, condenses and selects the most salient sentences.
+    If script is too short, returns cleaned sentences without truncation.
+    """
+    target_words = max(25, int((duration_sec / 60) * 140))
+    paras = [clean_voiceover_sentence(p) for p in text.split("\n") if p.strip()]
+    sentences = []
+    for p in paras:
+        for s in re.split(r"(?<=[.!?])\s+", p):
+            s_clean = s.strip()
+            if s_clean:
+                sentences.append(s_clean)
+
+    if not sentences:
+        return text
+
+    # Select sentences up to target word count (+15% tolerance)
+    selected = []
+    accum_words = 0
+    max_words = int(target_words * 1.15)
+    for s in sentences:
+        s_words = len(s.split())
+        if accum_words + s_words <= max_words or not selected:
+            selected.append(s)
+            accum_words += s_words
+        else:
+            break
+
+    return " ".join(selected)
+
+
 async def generate_script_from_topic(
     topic: str,
     duration_sec: int = 90,
@@ -118,7 +151,7 @@ async def generate_script_from_topic(
     if shutil.which("agy"):
         try:
             proc = await asyncio.create_subprocess_exec(
-                "agy", "--effort", "low", "-p", prompt, "--dangerously-skip-permissions",
+                "agy", "--model", "ag/gemini-3.8-flash-high", "--effort", "low", "-p", prompt, "--dangerously-skip-permissions",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

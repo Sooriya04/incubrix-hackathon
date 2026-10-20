@@ -19,12 +19,12 @@ Spoken English for video narration averages **130 to 150 words per minute** (~2.
 
 | Target Duration | Seconds | Word Budget | Recommended Scenes | Average Words / Scene |
 | :--- | :--- | :--- | :--- | :--- |
-| **30 sec** | 30s | ~65 – 75 words | 2 – 3 scenes | 25 – 30 words |
-| **1:00 min** | 60s | ~130 – 150 words | 4 – 5 scenes | 30 – 35 words |
-| **1:30 min** | 90s | ~200 – 220 words | 6 – 7 scenes | 30 – 35 words |
-| **2:00 min** | 120s | ~270 – 290 words | 8 – 9 scenes | 30 – 35 words |
-| **3:00 min** | 180s | ~400 – 430 words | 10 – 12 scenes | 35 – 40 words |
-| **5:00 min** | 300s | ~650 – 720 words | 15 – 18 scenes | 35 – 40 words |
+| **30 sec** | 30s | ~65  75 words | 2  3 scenes | 25  30 words |
+| **1:00 min** | 60s | ~130  150 words | 4  5 scenes | 30  35 words |
+| **1:30 min** | 90s | ~200  220 words | 6  7 scenes | 30  35 words |
+| **2:00 min** | 120s | ~270  290 words | 8  9 scenes | 30  35 words |
+| **3:00 min** | 180s | ~400  430 words | 10  12 scenes | 35  40 words |
+| **5:00 min** | 300s | ~650  720 words | 15  18 scenes | 35  40 words |
 
 ---
 
@@ -34,15 +34,15 @@ Spoken English for video narration averages **130 to 150 words per minute** (~2.
 > Text-to-speech engines read every single token aloud. Meta-labels ruin the video.
 
 1. **NEVER output Scene Headers in Spoken Audio:**
-   - ❌ WRONG: `"Scene 1: Artificial intelligence is transforming software engineering."`
-   - ❌ WRONG: `"[Scene 01] Deep learning networks process vast data."`
-   - ❌ WRONG: `"Narrator: Today we explore autonomous agents."`
-   - ✅ CORRECT: `"Artificial intelligence is transforming software engineering."`
+   -  WRONG: `"Scene 1: Artificial intelligence is transforming software engineering."`
+   -  WRONG: `"[Scene 01] Deep learning networks process vast data."`
+   -  WRONG: `"Narrator: Today we explore autonomous agents."`
+   -  CORRECT: `"Artificial intelligence is transforming software engineering."`
 2. **Clean Natural Prose:**
    - Write in direct, engaging, declarative sentences.
    - Avoid parenthetical notes `(pause 2 seconds)` or markdown stage directions `*whispering*`.
 3. **Dedicated Visual Hints per Scene:**
-   - For every scene paragraph, assign 3–5 concrete stock footage search keywords.
+   - For every scene paragraph, assign 35 concrete stock footage search keywords.
    - Example keywords: `datacenter server rack lights`, `software engineer code terminal`, `robotic arm manufacturing`.
 
 ---
@@ -51,8 +51,8 @@ Spoken English for video narration averages **130 to 150 words per minute** (~2.
 
 When researching and structuring a topic:
 - **Hook (Scene 1):** The core problem or counter-intuitive hook.
-- **Core Mechanism (Scenes 2–4):** Architecture, mechanics, or how it works under the hood.
-- **Operational Reality (Scenes 5–7):** Real-world workflows, data processing, and tools.
+- **Core Mechanism (Scenes 24):** Architecture, mechanics, or how it works under the hood.
+- **Operational Reality (Scenes 57):** Real-world workflows, data processing, and tools.
 - **Impact & Future (Final Scenes):** Quantitative metrics, long-term impact, and closing key takeaway.
 
 ---

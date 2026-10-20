@@ -18,7 +18,7 @@ export const Cross: React.FC<CrossProps> = ({
   const frame = useCurrentFrame();
   const elapsed = Math.max(0, frame - delayFrames);
 
-  // Draws "✕" mark with strokeDashoffset over 8 frames
+  // Draws "" mark with strokeDashoffset over 8 frames
   const progress = interpolate(elapsed, [0, 8], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',

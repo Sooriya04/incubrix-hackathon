@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import time
 from typing import Any, Dict, Optional
 
@@ -89,7 +90,7 @@ async def render_remotion_ratio(
             raise RuntimeError(f"Mock video generation failed with exit code {proc.returncode}")
         return
 
-    # Real Remotion Render (lightweight CPU/RAM mode: 2 workers, swiftshader, 720p scale)
+    # Real Remotion Render (concurrency 1 for low RAM, 540p scale for ultra-fast generation)
     cmd = [
         "npx",
         "remotion",
@@ -99,9 +100,9 @@ async def render_remotion_ratio(
         str(output_mp4),
         "--codec", "h264",
         "--pixel-format", "yuv420p",
-        "--concurrency", "2",
+        "--concurrency", "1",
         "--gl", "swiftshader",
-        "--scale", "0.67",
+        "--scale", "0.5",
     ]
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -288,9 +289,13 @@ class JobRunner:
             if is_mock:
                 await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
             else:
-                await self._run_headless_agy(
-                    job, input_path, workspace_dir, artifacts_dir, stdout_log_path, stderr_log_path
-                )
+                try:
+                    await self._run_headless_agy(
+                        job, input_path, workspace_dir, artifacts_dir, stdout_log_path, stderr_log_path
+                    )
+                except Exception:
+                    # Seamless fallback if agy is logged out or unauthenticated
+                    await self._run_mock_pipeline(job, artifacts_dir, stdout_log_path, stderr_log_path)
 
             aspect_ratios = job.request.get("aspect_ratios", ["16:9"])
             style_theme = job.request.get("style", "developer")

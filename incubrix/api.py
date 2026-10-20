@@ -535,8 +535,9 @@ class RenameTitleRequest(BaseModel):
 
 class ScriptGenRequest(BaseModel):
     topic: str
-    duration: Optional[str] = "1:30 min"
+    duration: Optional[str] = None
     duration_sec: Optional[int] = None
+    duration_seconds: Optional[int] = None  # alias from frontend
 
 
 @app.get(
@@ -608,7 +609,7 @@ async def generate_script_endpoint(req: ScriptGenRequest):
             message="Topic cannot be empty.",
             details={"field": "topic"},
         )
-    d_sec = req.duration_sec or parse_duration_seconds(req.duration or "1:30 min")
+    d_sec = req.duration_seconds or req.duration_sec or parse_duration_seconds(req.duration or "1:30 min")
     res = await generate_script_from_topic(topic=topic, duration_sec=d_sec)
     return res
 
@@ -819,10 +820,17 @@ async def connect_host_agy():
     }
 
 
+def _callback_uri(request: Request) -> str:
+    """Build redirect_uri using the Host header so localhost always matches."""
+    host = request.headers.get("host", "localhost:8000")
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    return f"{scheme}://{host}/api/v1/auth/callback"
+
+
 @app.get("/api/v1/auth/google/login", summary="Initiate Google OAuth for Antigravity")
 async def google_oauth_login(request: Request):
     """Redirect directly to Google OAuth consent screen using official Antigravity client."""
-    redirect_uri = f"{request.base_url}api/v1/auth/callback"
+    redirect_uri = _callback_uri(request)
     params = {
         "client_id": ANTIGRAVITY_CLIENT_ID,
         "response_type": "code",
@@ -848,7 +856,7 @@ async def google_oauth_callback(
     if not code:
         return RedirectResponse("/?auth_error=missing_code")
 
-    redirect_uri = f"{request.base_url}api/v1/auth/callback"
+    redirect_uri = _callback_uri(request)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             token_resp = await client.post(
@@ -903,7 +911,7 @@ async def request_auth_code(request: Request):
     code = f"AGY-{secrets.token_hex(3).upper()}"
     _PENDING_AUTH_CODES[code] = time.time() + 600
 
-    redirect_uri = f"{request.base_url}api/v1/auth/callback"
+    redirect_uri = _callback_uri(request)
     google_oauth_url = (
         f"{GOOGLE_AUTH_URL}?"
         f"response_type=code"
@@ -936,7 +944,7 @@ async def verify_auth_code(request: Request):
 
     # If code is a Google authorization code (starts with 4/), exchange it live
     if code.startswith("4/") and len(code) > 15:
-        redirect_uri = f"{request.base_url}api/v1/auth/callback"
+        redirect_uri = _callback_uri(request)
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 token_resp = await client.post(

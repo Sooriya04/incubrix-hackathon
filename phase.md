@@ -1,4 +1,4 @@
-# IncuBrix Script-to-B-Roll Video Engine — Phase Implementation Guide
+# IncuBrix Script-to-B-Roll Video Engine  Phase Implementation Guide
 
 ## Executive Overview
 
@@ -15,8 +15,8 @@ flowchart TD
     Client["Client / Postman / Frontend"] -->|"POST /api/v1/broll/jobs (JSON / Multipart)"| API["FastAPI Application (incubrix/api.py)"]
     
     subgraph "Validation & Idempotency"
-        API --> ModelVal["Pydantic Contract Validation (models.py)<br/>• Strict XOR on Input Mode<br/>• Bounds & Aspect Ratio Checks"]
-        API --> Idemp["Idempotency Manager (storage.py)<br/>• UUIDv7 Auto-Generation<br/>• Conflict Detection (409)<br/>• Safe Replay"]
+        API --> ModelVal["Pydantic Contract Validation (models.py)<br/> Strict XOR on Input Mode<br/> Bounds & Aspect Ratio Checks"]
+        API --> Idemp["Idempotency Manager (storage.py)<br/> UUIDv7 Auto-Generation<br/> Conflict Detection (409)<br/> Safe Replay"]
     end
     
     API -->|"HTTP 202 Accepted (Location, X-Correlation-Id)"| Client
@@ -30,7 +30,7 @@ flowchart TD
     API -->|"Trigger async task (Non-blocking)"| Runner["JobRunner (incubrix/runner.py)"]
     
     subgraph "Headless Execution & Sandboxing"
-        Runner --> StateUpdate["State Machine: queued → running"]
+        Runner --> StateUpdate["State Machine: queued  running"]
         Runner --> Workspace["Sandbox Workspace: data/jobs/{job_id}/workspace"]
         Runner --> Subprocess["Headless agy Subprocess<br/>agy -p '...' --dangerously-skip-permissions"]
         Subprocess --> Logs["Raw Logs: stdout.log / stderr.log (Secrets Redacted)"]
@@ -46,7 +46,7 @@ flowchart TD
         Artifacts --> MF["manifest.json"]
     end
     
-    Runner --> Complete["State Machine: running → succeeded (100%)"]
+    Runner --> Complete["State Machine: running  succeeded (100%)"]
     Client -->|"GET /api/v1/jobs/{job_id}"| Poll["Status Polling Endpoint"]
     Poll --> Complete
 ```
@@ -55,7 +55,7 @@ flowchart TD
 
 ## Phase Breakdown
 
-### Phase 1: API Contract & OpenAPI Specification ✅ (Completed)
+### Phase 1: API Contract & OpenAPI Specification  (Completed)
 - **Deliverables:** [`API_CONTRACT.md`](file:///media/workspace/incubrix-hackathon/API_CONTRACT.md) and [`openapi.yaml`](file:///media/workspace/incubrix-hackathon/openapi.yaml).
 - Defined input/output schemas, mutual exclusivity XOR constraints, error catalog, state machine, and artifact schemas.
 
@@ -63,7 +63,7 @@ flowchart TD
 
 ### Phase 2: Engine Core Architecture & Orchestration
 
-#### Task 2.1: Asynchronous `agy` Headless Job Launcher ✅ (Completed & Verified)
+#### Task 2.1: Asynchronous `agy` Headless Job Launcher  (Completed & Verified)
 * **What was built:**
   1. **Asynchronous Non-Blocking HTTP Interface:**
      - `POST /api/v1/broll/jobs` validates payload, writes initial `queued` state, triggers background runner, and immediately returns `HTTP 202 Accepted` with `Location` and `X-Correlation-Id` headers.
@@ -78,7 +78,7 @@ flowchart TD
      - Captures raw `stdout.log` and `stderr.log`, redacting sensitive API keys or credentials.
      - Handles execution timeouts (`TIMEOUT_EXCEEDED`) and process crashes (`RENDER_PIPELINE_FAILED`).
   4. **Persistent State Machine & Restart Resilience:**
-     - Tracks state transitions: `queued` → `running` → `succeeded` or `failed`.
+     - Tracks state transitions: `queued`  `running`  `succeeded` or `failed`.
      - Atomic file writes ensure jobs and idempotency records survive server or container restarts without corruption.
   5. **Deterministic Mock Test Harness:**
      - Provides sub-second (0.8s) offline execution for automated CI/CD and testing environments without requiring external API keys.
@@ -91,7 +91,7 @@ flowchart TD
 
 ### Upcoming Tasks in Phase 2
 
-#### Task 2.2: Audio Voiceover & Subtitle Alignment Engine ✅ (Completed & Verified)
+#### Task 2.2: Audio Voiceover & Subtitle Alignment Engine  (Completed & Verified)
 * **What was built:**
   1. **Neural Text-to-Speech Synthesis:**
      - High-fidelity voice synthesis using Edge-TTS neural models (`en-IN-NeerjaNeural`, `en-US-JennyNeural`, etc.) with instant offline fallback.
@@ -112,17 +112,17 @@ flowchart TD
   5. **Contract-Compliant Metadata Generation:**
      - Automatic generation of `artifacts/timeline.json` and `artifacts/manifest.json`.
   6. **Pipeline Runner Integration:**
-     - Wired directly into `incubrix/runner.py` with stage transitions: `queued` → `transcribing` (20%) → `segmenting` (35%) → `sourcing_footage` (50%).
+     - Wired directly into `incubrix/runner.py` with stage transitions: `queued`  `transcribing` (20%)  `segmenting` (35%)  `sourcing_footage` (50%).
 
 ---
 
 ### Upcoming Tasks in Phase 2
 
-#### Task 2.3: Semantic Scene Segmentation & Visual Hint Extraction ⏳ (Upcoming)
-- Segment voiceover into semantic scene blocks (3–7 seconds each).
+#### Task 2.3: Semantic Scene Segmentation & Visual Hint Extraction  (Upcoming)
+- Segment voiceover into semantic scene blocks (37 seconds each).
 - Formulate visual scene hints rather than literal keyword queries to avoid irrelevant stock matches.
 
-#### Task 2.4: Multi-Provider Footage Discovery & Licensing Guardrails ✅ (Completed & Verified)
+#### Task 2.4: Multi-Provider Footage Discovery & Licensing Guardrails  (Completed & Verified)
 * **Architecture & What was built:**
   1. **Pixabay Video Engine (`incubrix/footage.py`):**
      - Full integration with Pixabay Video REST API for semantic B-roll discovery.
@@ -136,17 +136,17 @@ flowchart TD
      - Automatic fallback to offline mock footage generator during tests or when keys/networks are unavailable.
      - Direct `<OffthreadVideo>` rendering in `remotion/BrollVideo.tsx` with burned-in synchronized captions.
 
-#### Task 2.5: Remotion / FFmpeg Video Composition & Subtitle Burn-In ⏳ (Upcoming)
+#### Task 2.5: Remotion / FFmpeg Video Composition & Subtitle Burn-In  (Upcoming)
 ### Phase 3: Remotion Video Composition & Rendering
 
-#### Task 3.1: Dynamic Remotion Project Generation & Multi-Ratio Composition ✅ (Completed & Verified)
+#### Task 3.1: Dynamic Remotion Project Generation & Multi-Ratio Composition  (Completed & Verified)
 * **Architecture & What was built:**
   1. **Workspace Project Harness (`incubrix/project_generator.py`):**
      - Dynamically configures isolated, concurrent-safe Remotion project workspaces per job at `data/jobs/{job_id}/workspace`.
      - Reuses shared core TSX components (`Root.tsx`, `BrollVideo.tsx`, `ratios.ts`, `theme.ts`), node_modules, and fonts via symlinks to prevent code duplication or disk bloat.
      - Isolates all job assets (`public/audio/scene_*.mp3`, `public/voiceover.mp3`, `public/captions.json`, `captions.json`, `job_config.json`).
   2. **Multi-Ratio Composition Engine (`remotion/BrollVideo.tsx` & `remotion/Root.tsx`):**
-     - Single reusable component rendering `16:9` (1920×1080), `9:16` (1080×1920), `1:1` (1080×1080), and `3:2` (1620×1080).
+     - Single reusable component rendering `16:9` (19201080), `9:16` (10801920), `1:1` (10801080), and `3:2` (16201080).
      - Flat-plate anti-AI-slop standard: zero gradients, blurs, glows, or emojis.
      - Burned-in captions on solid plate with active-word highlighting from reliable word timestamps.
      - Enforces safe zones per ratio (keeping the bottom 22% of 9:16 clear of text).
@@ -158,13 +158,13 @@ flowchart TD
 
 ---
 
-#### Task 3.2: Automated Remotion Multi-Ratio Rendering Pipeline ✅ (Completed & Verified)
+#### Task 3.2: Automated Remotion Multi-Ratio Rendering Pipeline  (Completed & Verified)
 * **Architecture & What was built:**
   1. **Background Job Runner Integration (`incubrix/runner.py`):**
      - Seamlessly connects dynamic Remotion project generation and rendering into the existing background job lifecycle.
      - Automatically renders every requested aspect ratio (`16:9`, `9:16`, `1:1`, `3:2`) into `artifacts/video_{ratio}.mp4`.
      - Preserves 30 fps, H.264/AAC output, short-side 1080 resolution, and ratio safe zones.
-     - Live progress tracking through stages: `transcribing` (20%) → `segmenting` (35%) → `sourcing_footage` (50%) → `normalizing` (65%) → `rendering` (75%–93%) → `packaging` (95%) → `completed` (100%).
+     - Live progress tracking through stages: `transcribing` (20%)  `segmenting` (35%)  `sourcing_footage` (50%)  `normalizing` (65%)  `rendering` (75%93%)  `packaging` (95%)  `completed` (100%).
   2. **Render Verification & Fail-Safe Error Handling:**
      - Post-render inspection using `ffprobe` verifying duration, playability, and non-empty stream integrity.
      - Robust timeout handling, subprocess cleanup, and secret redaction.

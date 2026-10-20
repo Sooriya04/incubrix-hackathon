@@ -57,7 +57,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ color: C.line, marginRight: '8px', whiteSpace: 'pre' }}>
-                {indent}{item.isFolder ? '▶ ' : '· '}
+                {indent}{item.isFolder ? ' ' : ' '}
               </span>
               <span
                 style={{

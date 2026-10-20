@@ -157,7 +157,7 @@
   <div id="authView" class="auth-wrapper">
     <div class="card auth-box">
       <div class="brand">
-        <div class="brand-logo">▲</div>
+        <div class="brand-logo"></div>
         <div>
           <div>IncuBrix Studio</div>
           <div style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Antigravity AI Video Engine</div>
@@ -172,17 +172,17 @@
         </div>
         <p style="color: #d4d4d8;">Host terminal has active credentials in <code class="mono" style="color:var(--accent)">~/.gemini/</code>.</p>
         <button id="btnConnectHost" type="button" class="btn btn-primary btn-block" style="margin-top:4px;">
-          ⚡ Connect Host Antigravity Session (1-Click)
+           Connect Host Antigravity Session (1-Click)
         </button>
-        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in via Google —</div>
+        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;"> or sign in via Google </div>
         <a href="/api/v1/auth/google/login" class="btn btn-secondary btn-block" style="text-decoration:none; font-size:0.85rem;">
-          🌐 Direct Sign in with Google Account ↗
+           Direct Sign in with Google Account 
         </a>
       </div>
 
       <!-- Step 1: Request Link Form -->
       <form id="requestCodeForm" style="display:flex; flex-direction:column; gap:14px;">
-        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in with custom email code —</div>
+        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;"> or sign in with custom email code </div>
         <div>
           <label>Google / Antigravity User Email</label>
           <input type="email" id="authEmail" class="mono" placeholder="developer@antigravity.google" value="developer@antigravity.google" required>
@@ -201,7 +201,7 @@
         <div class="banner">
           <div class="banner-title">Google Auth Link Ready</div>
           <a id="btnOpenGoogle" href="#" class="btn btn-secondary btn-block" style="font-size:0.8rem;">
-            🔗 Open Google Account Chooser ↗
+             Open Google Account Chooser 
           </a>
           <div style="font-size:0.75rem; color:var(--text-muted); line-height: 1.4;">
             1. Click above to select Google account.<br>
@@ -223,7 +223,7 @@
           Verify Authorization Code & Enter
         </button>
         <button type="button" id="btnBackToRequest" class="btn btn-outline btn-block" style="font-size:0.75rem; padding:6px;">
-          ← Back to Request Link
+           Back to Request Link
         </button>
       </form>
     </div>
@@ -234,7 +234,7 @@
     <!-- Top Header -->
     <header>
       <div class="brand">
-        <div class="brand-logo">▲</div>
+        <div class="brand-logo"></div>
         <span>IncuBrix Studio</span>
         <span class="badge">Remotion 1080p</span>
       </div>
@@ -259,7 +259,7 @@
             <span>Video History</span>
             <div style="display:flex; gap:6px; align-items:center;">
               <span class="badge" style="background:#18181b;">SQLite</span>
-              <button type="button" id="btnRefreshHistory" class="btn-outline" style="padding:2px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Refresh History">🔄</button>
+              <button type="button" id="btnRefreshHistory" class="btn-outline" style="padding:2px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Refresh History"></button>
             </div>
           </div>
           <div id="historyList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; min-height:180px;">
@@ -304,32 +304,33 @@
                 <label style="margin:0;">Narration Script or Topic Prompt</label>
                 <div style="display:flex; gap:8px; font-size:0.75rem; font-family:var(--mono);">
                   <span style="color:var(--text-muted);">Duration: <strong id="metricDuration" style="color:var(--accent);">1:30 min</strong></span>
-                  <span style="color:var(--text-muted);">·</span>
+                  <span style="color:var(--text-muted);"></span>
                   <span style="color:var(--text-muted);">Words: <strong id="metricWords" style="color:#38bdf8;">~210</strong></span>
-                  <span style="color:var(--text-muted);">·</span>
+                  <span style="color:var(--text-muted);"></span>
                   <span style="color:var(--text-muted);">Scenes: <strong id="metricScenes" style="color:#a78bfa;">~6-7</strong></span>
                 </div>
               </div>
               <textarea id="scriptInput" rows="3" placeholder="Enter your narration script or type a prompt like 'Explain AI agents (3 minutes)'..." required>Building the future with agentic intelligence. Fast, scalable video creation for developers.</textarea>
               <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
                 <button type="button" id="btnResearchScript" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px;">
-                  ✨ Auto-Research & Generate Script (Antigravity AI)
+                   Auto-Research & Generate Script (Antigravity AI)
                 </button>
-                <span id="scriptGenSpinner" class="hidden mono" style="font-size:0.75rem; color:var(--accent);">⚡ Researching topic & generating scenes...</span>
+                <span id="scriptGenSpinner" class="hidden mono" style="font-size:0.75rem; color:var(--accent);"> Researching topic & generating scenes...</span>
               </div>
             </div>
 
             <div class="grid-4" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px;">
               <div>
                 <label>Target Duration</label>
-                <select id="durationSelect">
-                  <option value="30s">30 sec (~70 words)</option>
-                  <option value="1:00 min">1:00 min (~140 words)</option>
-                  <option value="1:30 min" selected>1:30 min (~210 words)</option>
-                  <option value="2:00 min">2:00 min (~280 words)</option>
-                  <option value="3:00 min">3:00 min (~420 words)</option>
-                  <option value="5:00 min">5:00 min (~700 words)</option>
-                  <option value="auto">Auto (from script)</option>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <input type="number" id="durationValueInput" value="90" min="5" max="3600" style="width: 70px; background: var(--input-bg); color: var(--text); border: 1px solid var(--card-border); padding: 6px; border-radius: 4px; font-family: var(--mono);" />
+                  <select id="durationUnitSelect" style="background: var(--input-bg); color: var(--text); border: 1px solid var(--card-border); padding: 6px; border-radius: 4px;">
+                    <option value="s" selected>sec</option>
+                    <option value="min">min</option>
+                  </select>
+                </div>
+                <select id="durationSelect" style="display:none;">
+                  <option value="1:30 min" selected>1:30 min</option>
                 </select>
               </div>
 
@@ -431,13 +432,11 @@
       try {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('auth_success') === 'true') {
-          const email = urlParams.get('email');
-          const token = urlParams.get('token');
-          if (email && token) {
-            currentAuth = { email, token, source: 'google_oauth' };
-            localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
+          const email = urlParams.get('email') || 'developer@antigravity.google';
+          const token = urlParams.get('token') || 'agy_sess_token';
+          currentAuth = { email, token, source: 'google_oauth' };
+          localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
         const saved = localStorage.getItem('incubrix_auth');
         if (!currentAuth && saved) currentAuth = JSON.parse(saved);
@@ -469,7 +468,15 @@
 
       const createVideoForm = document.getElementById('createVideoForm');
       const scriptInput = document.getElementById('scriptInput');
-      const durationSelect = document.getElementById('durationSelect');
+      const durationValueInput = document.getElementById('durationValueInput');
+      const durationUnitSelect = document.getElementById('durationUnitSelect');
+      const durationSelect = {
+        get value() {
+          const val = durationValueInput ? durationValueInput.value : '90';
+          const unit = durationUnitSelect ? durationUnitSelect.value : 's';
+          return `${val}${unit}`;
+        }
+      };
       const metricDuration = document.getElementById('metricDuration');
       const metricWords = document.getElementById('metricWords');
       const metricScenes = document.getElementById('metricScenes');
@@ -506,12 +513,22 @@
         'auto': { dur: 'Auto', words: 'dynamic', scenes: 'dynamic' },
       };
 
+      function getDurationSeconds() {
+        const val = durationValueInput ? parseInt(durationValueInput.value, 10) || 90 : 90;
+        const unit = durationUnitSelect ? durationUnitSelect.value : 's';
+        return unit === 'min' ? val * 60 : val;
+      }
+
       function updateDurationMetrics() {
-        const val = durationSelect ? durationSelect.value : '1:30 min';
-        const bench = DURATION_BENCHMARKS[val] || DURATION_BENCHMARKS['1:30 min'];
-        if (metricDuration) metricDuration.textContent = bench.dur;
-        if (metricWords) metricWords.textContent = bench.words;
-        if (metricScenes) metricScenes.textContent = bench.scenes;
+        const secs = getDurationSeconds();
+        const words = Math.round((secs / 60) * 140);
+        const scenes = Math.max(2, Math.round(secs / 15));
+        const mins = Math.floor(secs / 60);
+        const rem = secs % 60;
+        const formatted = mins > 0 ? `${mins}:${String(rem).padStart(2,'0')} min` : `${secs} sec`;
+        if (metricDuration) metricDuration.textContent = formatted;
+        if (metricWords) metricWords.textContent = `~${words}`;
+        if (metricScenes) metricScenes.textContent = `${scenes}-${scenes + 2}`;
       }
 
       function init() {
@@ -565,6 +582,14 @@
             const data = await res.json();
             if (data.authenticated) {
               hostAuthBanner.classList.remove('hidden');
+              // Auto-connect if host has valid AGY credentials
+              const connectRes = await fetch('/api/v1/auth/agy/host-connect', { method: 'POST' });
+              if (connectRes.ok) {
+                const connectData = await connectRes.json();
+                currentAuth = { email: connectData.user, token: connectData.token, source: connectData.source };
+                localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
+                showStudio();
+              }
             }
           }
         } catch (e) {}
@@ -702,9 +727,8 @@
       });
 
       // Duration metrics listener
-      if (durationSelect) {
-        durationSelect.addEventListener('change', updateDurationMetrics);
-      }
+      if (durationValueInput) durationValueInput.addEventListener('input', updateDurationMetrics);
+      if (durationUnitSelect) durationUnitSelect.addEventListener('change', updateDurationMetrics);
 
       // Script Research & Expansion Button
       if (btnResearchScript) {
@@ -718,11 +742,11 @@
           if (scriptGenSpinner) scriptGenSpinner.classList.remove('hidden');
 
           try {
-            const dur = (durationSelect && durationSelect.value !== 'auto') ? durationSelect.value : '1:30 min';
+            const durSec = getDurationSeconds();
             const res = await fetch('/api/v1/script/generate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ topic: promptText, duration: dur }),
+              body: JSON.stringify({ topic: promptText, duration_seconds: durSec }),
             });
 
             if (res.ok) {
@@ -766,7 +790,7 @@
               <div class="history-item" data-id="${j.job_id}" style="background:#121215; border:1px solid #27272a; border-radius:8px; padding:10px; cursor:pointer; display:flex; flex-direction:column; gap:6px; transition:border-color 0.15s ease;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                   <span class="history-title" style="font-weight:600; font-size:0.85rem; color:#fff; word-break:break-word; flex:1;">${title}</span>
-                  <button type="button" class="btn-rename" data-id="${j.job_id}" data-title="${title}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem; padding:2px;" title="Rename Title">✏️</button>
+                  <button type="button" class="btn-rename" data-id="${j.job_id}" data-title="${title}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem; padding:2px;" title="Rename Title"></button>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7rem; font-family:var(--mono); color:var(--text-muted);">
                   <span class="badge ${statusClass}" style="font-size:0.65rem; padding:1px 6px; ${statusStyle}">${statusText}</span>

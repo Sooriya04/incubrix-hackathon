@@ -1,8 +1,8 @@
-# IncuBrix Script-to-B-Roll Video Engine — Phase 2 Task 2.1 Progress Log
+# IncuBrix Script-to-B-Roll Video Engine  Phase 2 Task 2.1 Progress Log
 
 **Generated Date:** 2026-10-19  
 **Status:** Completed & Fully Verified  
-**Task:** Phase 2, Task 2.1 — Asynchronous `agy` Headless Job Launcher
+**Task:** Phase 2, Task 2.1  Asynchronous `agy` Headless Job Launcher
 
 ---
 
@@ -25,36 +25,36 @@ The objective of Task 2.1 was to implement the asynchronous headless job launche
 
 ```
 /media/workspace/incubrix-hackathon/
-├── API_CONTRACT.md              # Canonical contract specification
-├── openapi.yaml                 # OpenAPI 3.1 specification
-├── pyproject.toml               # Package configuration & pytest settings
-├── artifacts.md                 # Complete task implementation log
-├── incubrix/
-│   ├── __init__.py              # Package init
-│   ├── config.py                # Environment-driven settings (pydantic-settings)
-│   ├── models.py                # Strict Pydantic models matching API contract & error catalog
-│   ├── storage.py               # Atomic file-backed persistent job store & idempotency registry
-│   ├── runner.py                # Headless `agy` subprocess supervisor & mock harness
-│   └── api.py                   # FastAPI REST API endpoints & correlation middleware
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py              # Isolated test fixtures & async HTTP test client
-│   ├── test_validation.py       # Contract schema & input validation tests
-│   ├── test_idempotency.py      # Safe retry & conflict detection tests
-│   ├── test_lifecycle.py        # Asynchronous job state transitions & persistence tests
-│   ├── test_runner_failures.py  # Process crash, timeout, and secret redaction tests
-│   └── test_headless_agy.py     # Live headless `agy` CLI integration test
-└── data/                        # Persistent runtime storage (survives restarts)
-    ├── idempotency.json         # Idempotency key -> (job_id, payload_hash) registry
-    └── jobs/
-        └── {job_id}/
-            ├── job.json         # Persisted state machine record
-            ├── input.json       # Validated request input
-            ├── logs/
-            │   ├── stdout.log   # Raw headless stdout
-            │   └── stderr.log   # Raw headless stderr
-            ├── workspace/       # Isolated sandbox workspace
-            └── artifacts/       # Deliverables (video_*.mp4, captions.srt, timeline.json, manifest.json)
+ API_CONTRACT.md              # Canonical contract specification
+ openapi.yaml                 # OpenAPI 3.1 specification
+ pyproject.toml               # Package configuration & pytest settings
+ artifacts.md                 # Complete task implementation log
+ incubrix/
+    __init__.py              # Package init
+    config.py                # Environment-driven settings (pydantic-settings)
+    models.py                # Strict Pydantic models matching API contract & error catalog
+    storage.py               # Atomic file-backed persistent job store & idempotency registry
+    runner.py                # Headless `agy` subprocess supervisor & mock harness
+    api.py                   # FastAPI REST API endpoints & correlation middleware
+ tests/
+    __init__.py
+    conftest.py              # Isolated test fixtures & async HTTP test client
+    test_validation.py       # Contract schema & input validation tests
+    test_idempotency.py      # Safe retry & conflict detection tests
+    test_lifecycle.py        # Asynchronous job state transitions & persistence tests
+    test_runner_failures.py  # Process crash, timeout, and secret redaction tests
+    test_headless_agy.py     # Live headless `agy` CLI integration test
+ data/                        # Persistent runtime storage (survives restarts)
+     idempotency.json         # Idempotency key -> (job_id, payload_hash) registry
+     jobs/
+         {job_id}/
+             job.json         # Persisted state machine record
+             input.json       # Validated request input
+             logs/
+                stdout.log   # Raw headless stdout
+                stderr.log   # Raw headless stderr
+             workspace/       # Isolated sandbox workspace
+             artifacts/       # Deliverables (video_*.mp4, captions.srt, timeline.json, manifest.json)
 ```
 
 ---

@@ -24,6 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import edge_tts
 import httpx
 
+from incubrix.script_generator import calibrate_script_to_duration
+
 # Voice mappings (API contract default: "en-IN-female")
 VOICE_MAP = {
     "en-IN-female": "en-IN-NeerjaNeural",
@@ -600,6 +602,13 @@ async def process_job_audio(
             "text": "Welcome to IncuBrix video generation.",
             "visual_hint": "Modern video engine animation",
         }]
+
+    # Calibrate script to user-specified duration if provided
+    duration_sec = job_request.get("duration_seconds") or job_request.get("duration_sec")
+    if duration_sec and isinstance(duration_sec, (int, float)) and duration_sec > 0:
+        combined = " ".join(s.get("text", "") for s in scenes)
+        calibrated = calibrate_script_to_duration(combined, int(duration_sec))
+        scenes = segment_script_into_scenes(calibrated)
 
     voice = job_request.get("voice", DEFAULT_VOICE)
     pipeline_res = await build_audio_pipeline(
