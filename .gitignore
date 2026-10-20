@@ -11,3 +11,4 @@ data/
 .env
 .env.*
 renders/
+others/

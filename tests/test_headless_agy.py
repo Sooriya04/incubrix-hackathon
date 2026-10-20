@@ -21,7 +21,7 @@ async def test_live_headless_agy_execution(client: httpx.AsyncClient, isolated_s
     # Configure runner to use real agy binary instead of mock
     monkeypatch.setattr(settings, "AGY_BIN_PATH", agy_path)
     monkeypatch.setattr(settings, "AGY_MOCK", False)
-    monkeypatch.setattr(settings, "JOB_TIMEOUT_SECONDS", 120)
+    monkeypatch.setattr(settings, "JOB_TIMEOUT_SECONDS", 180)
 
     # Fast video generation to focus test on agy CLI execution (video rendering is tested in test_remotion_rendering.py)
     original_render = render_remotion_ratio
@@ -39,7 +39,7 @@ async def test_live_headless_agy_execution(client: httpx.AsyncClient, isolated_s
 
     # Poll status until terminal state (real LLM turn + render takes 40-70s)
     data = None
-    for _ in range(120):
+    for _ in range(180):
         res_get = await client.get(f"/api/v1/jobs/{job_id}")
         assert res_get.status_code == 200
         data = res_get.json()

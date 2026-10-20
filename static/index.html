@@ -1,635 +1,733 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IncuBrix Studio | Script-to-B-Roll Video Engine</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React 18 & ReactDOM CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel Standalone for inline JSX compilation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #18181b;
+      --card-border: #27272a;
+      --input-bg: #09090b;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --danger: #ef4444;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      background: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .brand-logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .badge {
+      font-size: 0.7rem; font-family: var(--mono);
+      padding: 2px 8px; border-radius: 9999px;
+      background: #27272a; color: var(--text-muted);
+    }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .header-user { display: flex; align-items: center; gap: 16px; font-size: 0.8rem; }
+    .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; }
+    .btn-logout:hover { color: var(--danger); }
+    main {
+      flex: 1; max-width: 1280px; width: 100%; margin: 0 auto;
+      padding: 24px; display: grid; grid-template-columns: 1fr; gap: 24px;
+    }
+    @media (min-width: 1024px) {
+      main { grid-template-columns: 380px 1fr; }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .card-title {
+      font-size: 0.85rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    label { display: block; font-size: 0.75rem; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    input[type="text"], input[type="email"], input[type="password"], textarea, select {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    .mono { font-family: var(--mono); }
+    .grid-3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+    .btn {
+      padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+      border: none; cursor: pointer; transition: all 0.15s ease; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: #27272a; color: var(--text); border: 1px solid var(--card-border); }
+    .btn-secondary:hover { background: #3f3f46; }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); }
+    .btn-outline:hover { color: var(--text); border-color: #52525b; }
+    .btn-block { width: 100%; }
+    .banner {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+    .banner-title { font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 6px; }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .progress-track {
+      width: 100%; height: 8px; background: #09090b; border: 1px solid var(--card-border);
+      border-radius: 9999px; overflow: hidden; margin-top: 8px;
+    }
+    .progress-fill {
+      height: 100%; background: var(--accent); border-radius: 9999px;
+      width: 0%; transition: width 0.4s ease;
+    }
+    .video-container {
+      width: 100%; aspect-ratio: 16/9; background: #000;
+      border: 1px solid var(--card-border); border-radius: 10px;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+    video { width: 100%; height: 100%; object-fit: contain; }
+    .hidden { display: none !important; }
+    .auth-wrapper {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .auth-box { width: 100%; max-width: 440px; }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH VIEW -->
+  <div id="authView" class="auth-wrapper">
+    <div class="card auth-box">
+      <div class="brand">
+        <div class="brand-logo">▲</div>
+        <div>
+          <div>IncuBrix Studio</div>
+          <div style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Antigravity AI Video Engine</div>
+        </div>
+      </div>
+
+      <!-- Host Antigravity Detected Banner -->
+      <div id="hostAuthBanner" class="banner hidden">
+        <div class="banner-title">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent);"></span>
+          Antigravity CLI Session Active
+        </div>
+        <p style="color: #d4d4d8;">Host terminal has active credentials in <code class="mono" style="color:var(--accent)">~/.gemini/</code>.</p>
+        <button id="btnConnectHost" type="button" class="btn btn-primary btn-block" style="margin-top:4px;">
+          ⚡ Connect Host Antigravity Session (1-Click)
+        </button>
+        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in via browser —</div>
+      </div>
+
+      <!-- Step 1: Request Link Form -->
+      <form id="requestCodeForm" style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <label>Google / Antigravity User Email</label>
+          <input type="email" id="authEmail" class="mono" placeholder="developer@antigravity.google" value="developer@antigravity.google" required>
+        </div>
+        <div id="authError1" class="alert-error hidden"></div>
+        <button type="submit" id="btnRequestCode" class="btn btn-primary btn-block">
+          Get Antigravity Google Auth Link
+        </button>
+        <p style="font-size:0.75rem; color:var(--text-muted); text-align:center;">
+          Generates Google Account consent link & device code
+        </p>
+      </form>
+
+      <!-- Step 2: Verify Code Form -->
+      <form id="verifyCodeForm" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
+        <div class="banner">
+          <div class="banner-title">Google Auth Link Ready</div>
+          <a id="btnOpenGoogle" href="#" target="_blank" class="btn btn-secondary btn-block" style="font-size:0.8rem;">
+            🔗 Open Google Account Chooser ↗
+          </a>
+          <div style="font-size:0.75rem; color:var(--text-muted); line-height: 1.4;">
+            1. Click above to select Google account.<br>
+            2. Copy authorization code from Google.<br>
+            3. Paste code below to complete login.
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-family:var(--mono); color:var(--text-muted); padding-top:4px; border-top:1px solid #27272a;">
+            <span>Device Code:</span>
+            <span id="displayDeviceCode" style="color:var(--accent); font-weight:700;"></span>
+          </div>
+        </div>
+
+        <div>
+          <label>Paste Authorization Code</label>
+          <input type="text" id="authCodeInput" class="mono" placeholder="Paste code (e.g. 4/0Aea... or AGY-...)" style="text-align:center;" required>
+        </div>
+        <div id="authError2" class="alert-error hidden"></div>
+        <button type="submit" id="btnVerifyCode" class="btn btn-primary btn-block">
+          Verify Authorization Code & Enter
+        </button>
+        <button type="button" id="btnBackToRequest" class="btn btn-outline btn-block" style="font-size:0.75rem; padding:6px;">
+          ← Back to Request Link
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- STUDIO DASHBOARD VIEW -->
+  <div id="studioView" class="hidden" style="display:flex; flex-direction:column; min-height:100vh;">
+    <!-- Top Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-logo">▲</div>
+        <span>IncuBrix Studio</span>
+        <span class="badge">Remotion 1080p</span>
+      </div>
+
+      <div class="header-user">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span id="pixabayStatusDot" style="width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span>
+          <span id="pixabayStatusText" class="mono" style="font-size:0.75rem; color:var(--text-muted);">Pixabay Checking...</span>
+        </div>
+        <span class="mono" id="currentUserDisplay" style="color:var(--text-muted);"></span>
+        <button id="btnLogout" class="btn-logout">Logout</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main>
+      <!-- Left Column: API Keys & System Info -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <!-- API Credentials Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>API Credentials</span>
+            <span class="badge badge-success">Disk Cache Safe</span>
+          </div>
+
+          <form id="keysForm" style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label>Pixabay API Key</label>
+              <input type="password" id="pixabayKeyInput" class="mono" placeholder="Enter Pixabay API Key">
+            </div>
+            <div>
+              <label>Pexels API Key (Optional)</label>
+              <input type="password" id="pexelsKeyInput" class="mono" placeholder="Enter Pexels API Key">
+            </div>
+            <div id="keyFeedback" class="mono" style="font-size:0.75rem; color:var(--accent); min-height:16px;"></div>
+            <button type="submit" class="btn btn-secondary btn-block">Save API Keys to .env</button>
+          </form>
+        </div>
+
+        <!-- Central Storage Directory Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Central Renders Architecture</span>
+          </div>
+          <div class="mono" style="font-size:0.75rem; background:#09090b; padding:10px; border-radius:8px; border:1px solid var(--card-border); word-break:break-all; color:#a1a1aa;">
+            📁 ./renders/{job_id}/
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+            Every video request dynamically creates its dedicated workspace containing isolated Remotion components, voiceover audio, downloaded B-roll footage, and the rendered 1080p MP4.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Column: Video Studio Generator & Live Preview -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <!-- Studio Form Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Script-to-Video Engine</span>
+            <span class="badge">Multi-Ratio H.264</span>
+          </div>
+
+          <form id="createVideoForm" style="display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <label>Narration Script</label>
+              <textarea id="scriptInput" rows="3" placeholder="Enter your narration script here. IncuBrix will synthesize lockstep voiceover and sync B-roll..." required>Building the future with agentic intelligence. Fast, scalable video creation for developers.</textarea>
+            </div>
+
+            <div class="grid-3">
+              <div>
+                <label>Aspect Ratio</label>
+                <select id="ratioSelect">
+                  <option value="16:9">16:9 (Landscape 1080p)</option>
+                  <option value="9:16">9:16 (Shorts / Reels)</option>
+                  <option value="1:1">1:1 (Square Feed)</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Theme Style</label>
+                <select id="styleSelect">
+                  <option value="developer">Developer Plate (Dark / Code)</option>
+                  <option value="ink">Ink (Editorial)</option>
+                  <option value="paper">Paper (Warm Academic)</option>
+                  <option value="signal">Signal (High Contrast Amber)</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Voiceover Model</label>
+                <select id="voiceSelect">
+                  <option value="en-IN-female">Neerja (en-IN Female)</option>
+                  <option value="en-IN-male">Prabhat (en-IN Male)</option>
+                  <option value="en-US-female">Jenny (en-US Female)</option>
+                  <option value="en-US-male">Guy (en-US Male)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label>Negative Avoid Constraints (Comma-separated)</label>
+              <input type="text" id="avoidInput" class="mono" value="watermark, blurry, low quality" placeholder="watermark, blurry">
+            </div>
+
+            <div id="jobError" class="alert-error hidden"></div>
+
+            <button type="submit" id="btnGenerateVideo" class="btn btn-primary btn-block" style="padding:12px; font-size:0.95rem;">
+              <span>Generate 1080p B-Roll Video</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Live Progress & Player Card -->
+        <div id="jobStatusCard" class="card hidden">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <h3 style="font-size:0.9rem; font-weight:700;" id="jobIdDisplay">Job</h3>
+              <p class="mono" style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                Stage: <span id="jobStageDisplay" style="color:var(--accent); font-weight:600; text-transform:uppercase;">queued</span>
+              </p>
+            </div>
+            <span id="jobStatusBadge" class="badge badge-warning">QUEUED (0%)</span>
+          </div>
+
+          <div class="progress-track">
+            <div id="jobProgressFill" class="progress-fill"></div>
+          </div>
+
+          <!-- Player Container -->
+          <div id="playerSection" class="hidden" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+            <div class="video-container">
+              <video id="videoPlayer" controls autoplay playsinline>
+                Your browser does not support HTML5 video.
+              </video>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="display:flex; gap:8px;">
+                <a id="btnDownloadMp4" href="#" download class="btn btn-primary" style="font-size:0.8rem; padding:8px 14px;">
+                  Download 1080p MP4
+                </a>
+                <a id="linkTimeline" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">
+                  timeline.json
+                </a>
+                <a id="linkManifest" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">
+                  manifest.json
+                </a>
+              </div>
+              <span id="renderPathDisplay" class="mono" style="font-size:0.75rem; color:var(--text-muted);"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Pure Vanilla JavaScript (Zero Dependencies, Offline Instant Load <50ms) -->
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              500: '#10b981',
-              600: '#059669',
-            }
+    (function () {
+      // shortcut: local storage session auth, upgrade to OIDC tokens when multi-tenant user DB is connected
+      let currentAuth = null;
+      let activePollInterval = null;
+      let currentJobId = null;
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auth_success') === 'true') {
+          const email = urlParams.get('email');
+          const token = urlParams.get('token');
+          if (email && token) {
+            currentAuth = { email, token, source: 'google_oauth' };
+            localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
+            window.history.replaceState({}, document.title, window.location.pathname);
           }
+        }
+        const saved = localStorage.getItem('incubrix_auth');
+        if (!currentAuth && saved) currentAuth = JSON.parse(saved);
+      } catch (e) {}
+
+      // DOM Elements
+      const authView = document.getElementById('authView');
+      const studioView = document.getElementById('studioView');
+      const hostAuthBanner = document.getElementById('hostAuthBanner');
+      const btnConnectHost = document.getElementById('btnConnectHost');
+      const requestCodeForm = document.getElementById('requestCodeForm');
+      const verifyCodeForm = document.getElementById('verifyCodeForm');
+      const authEmail = document.getElementById('authEmail');
+      const authCodeInput = document.getElementById('authCodeInput');
+      const btnOpenGoogle = document.getElementById('btnOpenGoogle');
+      const displayDeviceCode = document.getElementById('displayDeviceCode');
+      const authError1 = document.getElementById('authError1');
+      const authError2 = document.getElementById('authError2');
+      const btnBackToRequest = document.getElementById('btnBackToRequest');
+      const currentUserDisplay = document.getElementById('currentUserDisplay');
+      const btnLogout = document.getElementById('btnLogout');
+
+      const pixabayStatusDot = document.getElementById('pixabayStatusDot');
+      const pixabayStatusText = document.getElementById('pixabayStatusText');
+      const keysForm = document.getElementById('keysForm');
+      const pixabayKeyInput = document.getElementById('pixabayKeyInput');
+      const pexelsKeyInput = document.getElementById('pexelsKeyInput');
+      const keyFeedback = document.getElementById('keyFeedback');
+
+      const createVideoForm = document.getElementById('createVideoForm');
+      const scriptInput = document.getElementById('scriptInput');
+      const ratioSelect = document.getElementById('ratioSelect');
+      const styleSelect = document.getElementById('styleSelect');
+      const voiceSelect = document.getElementById('voiceSelect');
+      const avoidInput = document.getElementById('avoidInput');
+      const btnGenerateVideo = document.getElementById('btnGenerateVideo');
+      const jobError = document.getElementById('jobError');
+
+      const jobStatusCard = document.getElementById('jobStatusCard');
+      const jobIdDisplay = document.getElementById('jobIdDisplay');
+      const jobStageDisplay = document.getElementById('jobStageDisplay');
+      const jobStatusBadge = document.getElementById('jobStatusBadge');
+      const jobProgressFill = document.getElementById('jobProgressFill');
+      const playerSection = document.getElementById('playerSection');
+      const videoPlayer = document.getElementById('videoPlayer');
+      const btnDownloadMp4 = document.getElementById('btnDownloadMp4');
+      const linkTimeline = document.getElementById('linkTimeline');
+      const linkManifest = document.getElementById('linkManifest');
+      const renderPathDisplay = document.getElementById('renderPathDisplay');
+
+      // Initialize
+      function init() {
+        if (currentAuth) {
+          showStudio();
+        } else {
+          showAuth();
+          checkHostAuth();
         }
       }
-    }
-  </script>
-</head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-black">
-  <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+      function showAuth() {
+        authView.classList.remove('hidden');
+        studioView.classList.add('hidden');
+      }
 
-    function App() {
-      // shortcut: simple local session token auth, upgrade to OAuth2/JWT when multi-tenant user database is added
-      const [auth, setAuth] = useState(() => {
-        const saved = localStorage.getItem('incubrix_auth');
-        return saved ? JSON.parse(saved) : null;
-      });
+      function showStudio() {
+        authView.classList.add('hidden');
+        studioView.classList.remove('hidden');
+        currentUserDisplay.textContent = currentAuth.email || 'developer@antigravity';
+        fetchKeys();
+      }
 
-      // Login form state
-      const [email, setEmail] = useState('');
-      const [authStep, setAuthStep] = useState('request'); // 'request' | 'verify'
-      const [sentCode, setSentCode] = useState('');
-      const [loginLink, setLoginLink] = useState('');
-      const [inputCode, setInputCode] = useState('');
-      const [authError, setAuthError] = useState('');
-      const [authLoading, setAuthLoading] = useState(false);
-
-      // Keys state
-      const [keys, setKeys] = useState({ pixabay_configured: false, pixabay_masked: null, pexels_configured: false, pexels_masked: null });
-      const [pixabayKeyInput, setPixabayKeyInput] = useState('');
-      const [pexelsKeyInput, setPexelsKeyInput] = useState('');
-      const [keyMessage, setKeyMessage] = useState('');
-      const [keysLoading, setKeysLoading] = useState(false);
-
-      // Video Job state
-      const [scriptText, setScriptText] = useState('Building the future with agentic intelligence. Fast, scalable video creation for developers.');
-      const [aspectRatio, setAspectRatio] = useState('16:9');
-      const [styleTheme, setStyleTheme] = useState('developer');
-      const [voice, setVoice] = useState('en-IN-female');
-      const [avoidTags, setAvoidTags] = useState('watermark, low quality');
-
-      const [activeJob, setActiveJob] = useState(null);
-      const [generating, setGenerating] = useState(false);
-      const [jobError, setJobError] = useState('');
-
-      useEffect(() => {
-        if (auth) {
-          fetchKeys();
-        }
-      }, [auth]);
-
-      // Polling active job
-      useEffect(() => {
-        if (!activeJob || activeJob.status === 'succeeded' || activeJob.status === 'failed') return;
-
-        const interval = setInterval(async () => {
-          try {
-            const res = await fetch(`/api/v1/jobs/${activeJob.job_id}`);
-            if (res.ok) {
-              const data = await res.json();
-              setActiveJob(data);
-              if (data.status === 'succeeded' || data.status === 'failed') {
-                setGenerating(false);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to poll job status', e);
-          }
-        }, 2000);
-
-        return () => clearInterval(interval);
-      }, [activeJob]);
-
-      const fetchKeys = async () => {
+      // 1. Check Host Antigravity Session
+      async function checkHostAuth() {
         try {
-          const res = await fetch('/api/v1/config/keys');
+          const res = await fetch('/api/v1/auth/agy/status');
           if (res.ok) {
             const data = await res.json();
-            setKeys(data);
+            if (data.authenticated) {
+              hostAuthBanner.classList.remove('hidden');
+            }
           }
-        } catch (e) {
-          console.error('Failed to fetch keys', e);
-        }
-      };
+        } catch (e) {}
+      }
 
-      const handleRequestCode = async (e) => {
+      // 2. 1-Click Connect Host
+      btnConnectHost.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/v1/auth/agy/host-connect', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            currentAuth = { email: data.user, token: data.token, source: data.source };
+            localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
+            showStudio();
+          }
+        } catch (err) {
+          alert('Failed to connect host Antigravity credentials');
+        }
+      });
+
+      // 3. Request Login Link
+      requestCodeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        setAuthError('');
-        setAuthLoading(true);
+        authError1.classList.add('hidden');
+        const email = authEmail.value.trim();
+
         try {
           const res = await fetch('/api/v1/auth/request-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email || 'developer@antigravity.google' }),
+            body: JSON.stringify({ email }),
           });
           const data = await res.json();
           if (res.ok) {
-            setSentCode(data.code);
-            setLoginLink(data.login_link);
-            setInputCode(data.code); // prefill for easy one-click testing
-            setAuthStep('verify');
+            btnOpenGoogle.href = data.google_oauth_link || data.login_link;
+            displayDeviceCode.textContent = data.code;
+            requestCodeForm.classList.add('hidden');
+            verifyCodeForm.classList.remove('hidden');
           } else {
-            setAuthError(data.detail || 'Failed to request login code');
+            authError1.textContent = data.detail || 'Failed to request login code';
+            authError1.classList.remove('hidden');
           }
         } catch (err) {
-          setAuthError('Connection error requesting login code');
-        } finally {
-          setAuthLoading(false);
+          authError1.textContent = 'Connection error requesting login code';
+          authError1.classList.remove('hidden');
         }
-      };
+      });
 
-      const handleVerifyCode = async (e) => {
+      // 4. Verify Authorization Code
+      verifyCodeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        setAuthError('');
-        setAuthLoading(true);
+        authError2.classList.add('hidden');
+        const code = authCodeInput.value.trim();
+
         try {
           const res = await fetch('/api/v1/auth/verify-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: inputCode, email }),
+            body: JSON.stringify({ code, email: authEmail.value.trim() }),
           });
           const data = await res.json();
           if (res.ok) {
-            const authData = { email: data.user, token: data.token };
-            localStorage.setItem('incubrix_auth', JSON.stringify(authData));
-            setAuth(authData);
+            currentAuth = { email: data.user, token: data.token };
+            localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
+            showStudio();
           } else {
-            setAuthError(data.detail || 'Invalid or expired authorization code');
+            authError2.textContent = data.detail || 'Invalid or expired authorization code';
+            authError2.classList.remove('hidden');
           }
         } catch (err) {
-          setAuthError('Connection error verifying code');
-        } finally {
-          setAuthLoading(false);
+          authError2.textContent = 'Connection error verifying code';
+          authError2.classList.remove('hidden');
         }
-      };
+      });
 
-      const handleLogout = () => {
+      btnBackToRequest.addEventListener('click', () => {
+        verifyCodeForm.classList.add('hidden');
+        requestCodeForm.classList.remove('hidden');
+      });
+
+      // 5. Logout
+      btnLogout.addEventListener('click', () => {
         localStorage.removeItem('incubrix_auth');
-        setAuth(null);
-        setAuthStep('request');
-      };
+        currentAuth = null;
+        if (activePollInterval) clearInterval(activePollInterval);
+        showAuth();
+      });
 
-      const handleSaveKeys = async (e) => {
+      // 6. Keys Management
+      async function fetchKeys() {
+        try {
+          const res = await fetch('/api/v1/config/keys');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.pixabay_configured) {
+              pixabayStatusDot.style.background = 'var(--accent)';
+              pixabayStatusText.textContent = `Pixabay Active (${data.pixabay_masked})`;
+              pixabayKeyInput.placeholder = `Active: ${data.pixabay_masked}`;
+            } else {
+              pixabayStatusDot.style.background = '#f59e0b';
+              pixabayStatusText.textContent = 'Pixabay Unconfigured';
+            }
+            if (data.pexels_configured) {
+              pexelsKeyInput.placeholder = `Active: ${data.pexels_masked}`;
+            }
+          }
+        } catch (e) {}
+      }
+
+      keysForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        setKeysLoading(true);
-        setKeyMessage('');
+        keyFeedback.textContent = 'Saving...';
         try {
           const res = await fetch('/api/v1/config/keys', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              pixabay_key: pixabayKeyInput || undefined,
-              pexels_key: pexelsKeyInput || undefined,
+              pixabay_key: pixabayKeyInput.value.trim() || undefined,
+              pexels_key: pexelsKeyInput.value.trim() || undefined,
             }),
           });
           const data = await res.json();
           if (res.ok) {
-            setKeyMessage('API keys saved and active in .env!');
-            setPixabayKeyInput('');
-            setPexelsKeyInput('');
+            keyFeedback.textContent = 'Saved and persisted to .env!';
+            pixabayKeyInput.value = '';
+            pexelsKeyInput.value = '';
             fetchKeys();
+            setTimeout(() => { keyFeedback.textContent = ''; }, 3000);
           } else {
-            setKeyMessage(data.detail || 'Failed to save keys');
+            keyFeedback.textContent = data.detail || 'Failed to save keys';
           }
         } catch (err) {
-          setKeyMessage('Error saving keys');
-        } finally {
-          setKeysLoading(false);
+          keyFeedback.textContent = 'Error saving keys';
         }
-      };
+      });
 
-      const handleCreateVideo = async (e) => {
+      // 7. Video Studio Generation & Polling
+      createVideoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!scriptText.trim()) return;
-        setGenerating(true);
-        setJobError('');
-        setActiveJob(null);
+        const script = scriptInput.value.trim();
+        if (!script) return;
+
+        jobError.classList.add('hidden');
+        btnGenerateVideo.disabled = true;
+        btnGenerateVideo.innerHTML = '<span>Rendering Video in Harness...</span>';
+        playerSection.classList.add('hidden');
+
+        const ratio = ratioSelect.value;
+        const style = styleSelect.value;
+        const voice = voiceSelect.value;
+        const avoid = avoidInput.value.split(',').map(s => s.trim()).filter(Boolean);
 
         try {
-          const avoidList = avoidTags.split(',').map(s => s.trim()).filter(Boolean);
           const res = await fetch('/api/v1/broll/jobs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              script: scriptText,
-              aspect_ratios: [aspectRatio],
-              style: styleTheme,
-              voice: voice,
-              avoid: avoidList,
+              script,
+              aspect_ratios: [ratio],
+              style,
+              voice,
+              avoid,
             }),
           });
+
           const data = await res.json();
           if (res.status === 202) {
-            setActiveJob(data);
+            currentJobId = data.job_id;
+            startJobPolling(currentJobId, ratio);
           } else {
-            setJobError(data.message || 'Job submission rejected');
-            setGenerating(false);
+            jobError.textContent = data.message || 'Job submission failed';
+            jobError.classList.remove('hidden');
+            btnGenerateVideo.disabled = false;
+            btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
           }
         } catch (err) {
-          setJobError('Network error starting render job');
-          setGenerating(false);
+          jobError.textContent = 'Network error initiating video job';
+          jobError.classList.remove('hidden');
+          btnGenerateVideo.disabled = false;
+          btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
         }
-      };
+      });
 
-      // 1. Antigravity Auth Screen
-      if (!auth) {
-        return (
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-2xl">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-xl">
-                  ▲
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold tracking-tight text-white">IncuBrix Studio</h1>
-                  <p className="text-xs text-zinc-400">Antigravity AI Video Engine</p>
-                </div>
-              </div>
+      function startJobPolling(jobId, ratio) {
+        jobStatusCard.classList.remove('hidden');
+        jobIdDisplay.textContent = `Job: ${jobId}`;
+        updateJobUI({ status: 'queued', progress: 5, stage: 'queued' });
 
-              {authStep === 'request' ? (
-                <form onSubmit={handleRequestCode} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                      Antigravity User Email
-                    </label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="developer@antigravity.google"
-                      className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
-                  </div>
+        if (activePollInterval) clearInterval(activePollInterval);
 
-                  {authError && (
-                    <div className="p-3 bg-red-950/50 border border-red-800 rounded-lg text-xs text-red-300">
-                      {authError}
-                    </div>
-                  )}
+        activePollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/v1/jobs/${jobId}`);
+            if (res.ok) {
+              const job = await res.json();
+              updateJobUI(job);
 
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-black font-semibold rounded-lg text-sm transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <span>{authLoading ? 'Requesting Link...' : 'Send Antigravity Login Link'}</span>
-                  </button>
-                  <p className="text-xs text-zinc-500 text-center">
-                    Uses Antigravity device authorization link & code
-                  </p>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyCode} className="space-y-4">
-                  <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg font-mono text-xs space-y-2">
-                    <div className="text-emerald-400 font-semibold flex items-center space-x-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span>Login Link Generated</span>
-                    </div>
-                    <div className="text-zinc-400 truncate">
-                      Link: <span className="text-zinc-200 underline">{loginLink}</span>
-                    </div>
-                    <div className="text-zinc-400">
-                      Authorization Code: <span className="text-emerald-300 font-bold bg-zinc-900 px-2 py-0.5 rounded">{sentCode}</span>
-                    </div>
-                  </div>
+              if (job.status === 'succeeded') {
+                clearInterval(activePollInterval);
+                btnGenerateVideo.disabled = false;
+                btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
 
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                      Enter Authorization Code
-                    </label>
-                    <input
-                      type="text"
-                      value={inputCode}
-                      onChange={(e) => setInputCode(e.target.value)}
-                      placeholder="AGY-XXXXXX"
-                      className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono tracking-widest uppercase text-center text-lg"
-                    />
-                  </div>
-
-                  {authError && (
-                    <div className="p-3 bg-red-950/50 border border-red-800 rounded-lg text-xs text-red-300">
-                      {authError}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-black font-semibold rounded-lg text-sm transition-colors"
-                  >
-                    {authLoading ? 'Verifying Code...' : 'Verify & Enter Studio'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAuthStep('request')}
-                    className="w-full py-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                  >
-                    ← Back to request link
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        );
+                // Display video player
+                const safeRatio = ratio.replace(':', '_');
+                const videoUrl = `/api/v1/jobs/${jobId}/artifacts/video_${safeRatio}.mp4`;
+                videoPlayer.src = videoUrl;
+                btnDownloadMp4.href = videoUrl;
+                linkTimeline.href = `/api/v1/jobs/${jobId}/artifacts/timeline.json`;
+                linkManifest.href = `/api/v1/jobs/${jobId}/artifacts/manifest.json`;
+                renderPathDisplay.textContent = `Saved in: ./renders/${jobId}/`;
+                playerSection.classList.remove('hidden');
+              } else if (job.status === 'failed') {
+                clearInterval(activePollInterval);
+                btnGenerateVideo.disabled = false;
+                btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
+                jobError.textContent = `Rendering failed: ${JSON.stringify(job.error || 'Unknown error')}`;
+                jobError.classList.remove('hidden');
+              }
+            }
+          } catch (e) {}
+        }, 1500);
       }
 
-      // 2. Main Studio Dashboard
-      return (
-        <div className="min-h-screen flex flex-col">
-          {/* Top Bar */}
-          <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400 font-bold">
-                ▲
-              </div>
-              <span className="font-bold text-lg tracking-tight text-white">IncuBrix Studio</span>
-              <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-mono">v1.0.0</span>
-            </div>
+      function updateJobUI(job) {
+        jobStageDisplay.textContent = job.stage || 'queued';
+        jobProgressFill.style.width = `${job.progress || 0}%`;
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-xs">
-                <span className={`w-2 h-2 rounded-full ${keys.pixabay_configured ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                <span className="text-zinc-300">
-                  {keys.pixabay_configured ? `Pixabay (${keys.pixabay_masked})` : 'Pixabay Unconfigured'}
-                </span>
-              </div>
-              <div className="h-4 w-px bg-zinc-800"></div>
-              <span className="text-xs font-mono text-zinc-400">{auth.email}</span>
-              <button
-                onClick={handleLogout}
-                className="text-xs text-zinc-400 hover:text-red-400 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </header>
+        if (job.status === 'succeeded') {
+          jobStatusBadge.className = 'badge badge-success';
+          jobStatusBadge.textContent = `COMPLETED (100%)`;
+        } else if (job.status === 'failed') {
+          jobStatusBadge.className = 'badge';
+          jobStatusBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+          jobStatusBadge.style.color = 'var(--danger)';
+          jobStatusBadge.textContent = 'FAILED';
+        } else {
+          jobStatusBadge.className = 'badge badge-warning';
+          jobStatusBadge.textContent = `${job.status.toUpperCase()} (${job.progress || 0}%)`;
+        }
+      }
 
-          {/* Main Grid */}
-          <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Left Column: API Keys & Settings (4 cols) */}
-            <div className="lg:col-span-4 space-y-6">
-              {/* API Keys Card */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">API Credentials</h2>
-                  <span className="text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
-                    Safe Cache
-                  </span>
-                </div>
-
-                <form onSubmit={handleSaveKeys} className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs text-zinc-400 font-medium">Pixabay API Key</label>
-                      {keys.pixabay_configured && (
-                        <span className="text-[10px] text-emerald-400 font-mono">Active</span>
-                      )}
-                    </div>
-                    <input
-                      type="password"
-                      value={pixabayKeyInput}
-                      onChange={(e) => setPixabayKeyInput(e.target.value)}
-                      placeholder={keys.pixabay_masked ? `Current: ${keys.pixabay_masked}` : 'Enter Pixabay API Key'}
-                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-mono text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs text-zinc-400 font-medium">Pexels API Key (Optional)</label>
-                      {keys.pexels_configured && (
-                        <span className="text-[10px] text-emerald-400 font-mono">Active</span>
-                      )}
-                    </div>
-                    <input
-                      type="password"
-                      value={pexelsKeyInput}
-                      onChange={(e) => setPexelsKeyInput(e.target.value)}
-                      placeholder={keys.pexels_masked ? `Current: ${keys.pexels_masked}` : 'Enter Pexels API Key'}
-                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-mono text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  {keyMessage && (
-                    <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded text-xs text-emerald-300 font-mono">
-                      {keyMessage}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={keysLoading}
-                    className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    {keysLoading ? 'Saving Keys...' : 'Save API Keys'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Renders Directory Info */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-sm space-y-3 font-mono text-xs">
-                <h3 className="text-zinc-400 uppercase tracking-wider font-sans font-semibold text-[11px]">Central Storage</h3>
-                <div className="p-2.5 bg-zinc-950 rounded border border-zinc-800 text-zinc-300 break-all">
-                  📁 ./renders/{'{job_id}'}/
-                </div>
-                <p className="text-[11px] text-zinc-500 font-sans">
-                  Each video generation request creates an isolated directory storing its Remotion harness, narration audio, clips, and exported MP4s.
-                </p>
-              </div>
-            </div>
-
-            {/* Right Column: Video Studio Generator & Player (8 cols) */}
-            <div className="lg:col-span-8 space-y-6">
-              {/* Studio Generator Card */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm space-y-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-white tracking-tight">Script-to-Video Studio</h2>
-                  <span className="text-xs text-zinc-400 font-mono">Remotion 1080p Engine</span>
-                </div>
-
-                <form onSubmit={handleCreateVideo} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                      Narration Script
-                    </label>
-                    <textarea
-                      rows="3"
-                      value={scriptText}
-                      onChange={(e) => setScriptText(e.target.value)}
-                      placeholder="Type your narration script here. Scenes will be segmented automatically with matched B-roll..."
-                      className="w-full p-3 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-sans"
-                    ></textarea>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Aspect Ratio */}
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1.5 font-medium">Aspect Ratio</label>
-                      <select
-                        value={aspectRatio}
-                        onChange={(e) => setAspectRatio(e.target.value)}
-                        className="w-full p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="16:9">16:9 (Landscape 1080p)</option>
-                        <option value="9:16">9:16 (Shorts / Reels)</option>
-                        <option value="1:1">1:1 (Square Feed)</option>
-                      </select>
-                    </div>
-
-                    {/* Theme Style */}
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1.5 font-medium">Style Theme</label>
-                      <select
-                        value={styleTheme}
-                        onChange={(e) => setStyleTheme(e.target.value)}
-                        className="w-full p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="developer">Developer Plate (Dark / Code)</option>
-                        <option value="ink">Ink (Editorial)</option>
-                        <option value="paper">Paper (Warm Academic)</option>
-                        <option value="signal">Signal (High Contrast Amber)</option>
-                      </select>
-                    </div>
-
-                    {/* Voice Model */}
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1.5 font-medium">Voiceover</label>
-                      <select
-                        value={voice}
-                        onChange={(e) => setVoice(e.target.value)}
-                        className="w-full p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="en-IN-female">Neerja (en-IN Female)</option>
-                        <option value="en-IN-male">Prabhat (en-IN Male)</option>
-                        <option value="en-US-female">Jenny (en-US Female)</option>
-                        <option value="en-US-male">Guy (en-US Male)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
-                      Negative Avoid Constraints (Comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={avoidTags}
-                      onChange={(e) => setAvoidTags(e.target.value)}
-                      placeholder="watermark, blurry, low quality"
-                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
-                  </div>
-
-                  {jobError && (
-                    <div className="p-3 bg-red-950/40 border border-red-800 rounded-lg text-xs text-red-300">
-                      {jobError}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={generating}
-                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-black font-bold rounded-lg text-sm transition-colors flex items-center justify-center space-x-2"
-                  >
-                    {generating ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
-                        <span>Rendering Video in Harness...</span>
-                      </>
-                    ) : (
-                      <span>Generate 1080p B-Roll Video</span>
-                    )}
-                  </button>
-                </form>
-              </div>
-
-              {/* Progress & Video Output Card */}
-              {activeJob && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-white">Job: {activeJob.job_id}</h3>
-                      <p className="text-xs text-zinc-400 font-mono mt-0.5">
-                        Stage: <span className="text-emerald-400 uppercase font-semibold">{activeJob.stage}</span>
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
-                      activeJob.status === 'succeeded' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
-                      activeJob.status === 'failed' ? 'bg-red-950 text-red-400 border border-red-800' :
-                      'bg-blue-950 text-blue-400 border border-blue-800 animate-pulse'
-                    }`}>
-                      {activeJob.status.toUpperCase()} ({activeJob.progress}%)
-                    </span>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="w-full bg-zinc-950 rounded-full h-2.5 border border-zinc-800 overflow-hidden">
-                    <div
-                      className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${activeJob.progress}%` }}
-                    ></div>
-                  </div>
-
-                  {/* Video Player when succeeded */}
-                  {activeJob.status === 'succeeded' && (
-                    <div className="space-y-4 pt-2">
-                      <div className="rounded-xl overflow-hidden border border-zinc-800 bg-black aspect-video flex items-center justify-center">
-                        <video
-                          controls
-                          autoPlay
-                          playsInline
-                          className="w-full h-full object-contain"
-                          src={`/api/v1/jobs/${activeJob.job_id}/artifacts/video_${aspectRatio.replace(':', '_')}.mp4`}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                        <div className="flex items-center space-x-2">
-                          <a
-                            href={`/api/v1/jobs/${activeJob.job_id}/artifacts/video_${aspectRatio.replace(':', '_')}.mp4`}
-                            download
-                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-lg text-xs transition-colors"
-                          >
-                            Download 1080p MP4
-                          </a>
-                          <a
-                            href={`/api/v1/jobs/${activeJob.job_id}/artifacts/timeline.json`}
-                            target="_blank"
-                            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition-colors font-mono"
-                          >
-                            timeline.json
-                          </a>
-                          <a
-                            href={`/api/v1/jobs/${activeJob.job_id}/artifacts/manifest.json`}
-                            target="_blank"
-                            className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs transition-colors font-mono"
-                          >
-                            manifest.json
-                          </a>
-                        </div>
-
-                        <span className="text-xs text-zinc-400 font-mono">
-                          Saved in: ./renders/{activeJob.job_id}/
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Failure detail */}
-                  {activeJob.status === 'failed' && (
-                    <div className="p-4 bg-red-950/40 border border-red-800 rounded-lg text-xs text-red-300 font-mono">
-                      Error: {activeJob.error ? JSON.stringify(activeJob.error) : 'Video rendering failed.'}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-          </main>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+      init();
+    })();
   </script>
 </body>
 </html>
