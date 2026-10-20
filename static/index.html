@@ -259,11 +259,9 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
                 <label style="margin:0;">Narration Script or Topic Prompt</label>
                 <div style="display:flex; gap:8px; font-size:0.75rem; font-family:var(--mono);">
-                  <span style="color:var(--text-muted);">Duration: <strong id="metricDuration" style="color:var(--accent);">1:30 min</strong></span>
-                  <span style="color:var(--text-muted);"></span>
-                  <span style="color:var(--text-muted);">Words: <strong id="metricWords" style="color:#38bdf8;">~210</strong></span>
-                  <span style="color:var(--text-muted);"></span>
-                  <span style="color:var(--text-muted);">Scenes: <strong id="metricScenes" style="color:#a78bfa;">~6-7</strong></span>
+                  <span id="metricDuration" style="display:none;"></span>
+                  <span id="metricWords" style="display:none;"></span>
+                  <span id="metricScenes" style="display:none;"></span>
                 </div>
               </div>
               <textarea id="scriptInput" rows="3" placeholder="Enter your narration script or type a prompt like 'Explain AI agents (3 minutes)'..." required>Building the future with agentic intelligence. Fast, scalable video creation for developers.</textarea>
@@ -278,16 +276,14 @@
             <div class="grid-4" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px;">
               <div>
                 <label>Target Duration</label>
-                <div style="display: flex; gap: 6px; align-items: center;">
-                  <input type="number" id="durationValueInput" value="90" min="5" max="3600" style="width: 70px; background: var(--input-bg); color: var(--text); border: 1px solid var(--card-border); padding: 6px; border-radius: 4px; font-family: var(--mono);" />
-                  <select id="durationUnitSelect" style="background: var(--input-bg); color: var(--text); border: 1px solid var(--card-border); padding: 6px; border-radius: 4px;">
-                    <option value="s" selected>sec</option>
-                    <option value="min">min</option>
-                  </select>
-                </div>
-                <select id="durationSelect" style="display:none;">
-                  <option value="1:30 min" selected>1:30 min</option>
-                </select>
+                <input type="text" id="durationInput" value="1:30" placeholder="e.g. 30  or  1:30  or  2:30"
+                  style="width:100%; background:var(--input-bg); color:var(--text); border:1px solid var(--card-border); padding:6px; border-radius:4px; font-family:var(--mono);">
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">seconds (30) or M:SS (1:30 = 1 min 30 sec)</div>
+                <!-- hidden stubs so JS proxy doesn't break -->
+                <input type="hidden" id="durationValueInput" value="90">
+                <input type="hidden" id="durationUnitSelect" value="s">
+                <select id="durationSelect" style="display:none;"><option value="1:30 min" selected>1:30 min</option></select>
+              </div>
               </div>
 
               <div>
@@ -470,9 +466,14 @@
       };
 
       function getDurationSeconds() {
-        const val = durationValueInput ? parseInt(durationValueInput.value, 10) || 90 : 90;
-        const unit = durationUnitSelect ? durationUnitSelect.value : 's';
-        return unit === 'min' ? val * 60 : val;
+        const raw = (document.getElementById('durationInput') || {}).value || '1:30';
+        const trimmed = raw.trim();
+        // M:SS format e.g. "1:30", "2:30"
+        const colonMatch = trimmed.match(/^(\d+):(\d{1,2})$/);
+        if (colonMatch) return parseInt(colonMatch[1], 10) * 60 + parseInt(colonMatch[2], 10);
+        // plain seconds
+        const num = parseInt(trimmed, 10);
+        return isNaN(num) ? 90 : Math.max(5, num);
       }
 
       function updateDurationMetrics() {
@@ -686,9 +687,9 @@
         }
       });
 
-      // Duration metrics listener
-      if (durationValueInput) durationValueInput.addEventListener('input', updateDurationMetrics);
-      if (durationUnitSelect) durationUnitSelect.addEventListener('change', updateDurationMetrics);
+      // Duration input listener
+      const _durInputEl = document.getElementById('durationInput');
+      if (_durInputEl) _durInputEl.addEventListener('input', updateDurationMetrics);
 
       // Script Research & Expansion Button
       if (btnResearchScript) {
