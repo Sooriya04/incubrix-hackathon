@@ -217,7 +217,7 @@ async def render_footage_fallback(
         filters.append(
             f"[{len(scene_labels)}:v]trim=duration={duration:.3f},setpts=PTS-STARTPTS,"
             f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height},fps=30,format=yuv420p[{label}]"
+            f"crop={width}:{height},setsar=1,fps=30,format=yuv420p[{label}]"
         )
         scene_labels.append(label)
 
