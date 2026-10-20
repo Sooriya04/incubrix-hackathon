@@ -247,8 +247,22 @@
 
     <!-- Main Workspace -->
     <main>
-      <!-- Left Column: API Keys & System Info -->
+      <!-- Left Column: Video History (SQLite) & API Keys -->
       <div style="display:flex; flex-direction:column; gap:20px;">
+        <!-- Video History Card -->
+        <div class="card" style="max-height: 540px; display: flex; flex-direction: column;">
+          <div class="card-title">
+            <span>Video History</span>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span class="badge" style="background:#18181b;">SQLite</span>
+              <button type="button" id="btnRefreshHistory" class="btn-outline" style="padding:2px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Refresh History">🔄</button>
+            </div>
+          </div>
+          <div id="historyList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; min-height:180px;">
+            <div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:20px 0;">Loading history...</div>
+          </div>
+        </div>
+
         <!-- API Credentials Card -->
         <div class="card">
           <div class="card-title">
@@ -269,19 +283,6 @@
             <button type="submit" class="btn btn-secondary btn-block">Save API Keys to .env</button>
           </form>
         </div>
-
-        <!-- Central Storage Directory Card -->
-        <div class="card">
-          <div class="card-title">
-            <span>Central Renders Architecture</span>
-          </div>
-          <div class="mono" style="font-size:0.75rem; background:#09090b; padding:10px; border-radius:8px; border:1px solid var(--card-border); word-break:break-all; color:#a1a1aa;">
-            📁 ./renders/{job_id}/
-          </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
-            Every video request dynamically creates its dedicated workspace containing isolated Remotion components, voiceover audio, downloaded B-roll footage, and the rendered 1080p MP4.
-          </p>
-        </div>
       </div>
 
       <!-- Right Column: Video Studio Generator & Live Preview -->
@@ -295,11 +296,39 @@
 
           <form id="createVideoForm" style="display:flex; flex-direction:column; gap:14px;">
             <div>
-              <label>Narration Script</label>
-              <textarea id="scriptInput" rows="3" placeholder="Enter your narration script here. IncuBrix will synthesize lockstep voiceover and sync B-roll..." required>Building the future with agentic intelligence. Fast, scalable video creation for developers.</textarea>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                <label style="margin:0;">Narration Script or Topic Prompt</label>
+                <div style="display:flex; gap:8px; font-size:0.75rem; font-family:var(--mono);">
+                  <span style="color:var(--text-muted);">Duration: <strong id="metricDuration" style="color:var(--accent);">1:30 min</strong></span>
+                  <span style="color:var(--text-muted);">·</span>
+                  <span style="color:var(--text-muted);">Words: <strong id="metricWords" style="color:#38bdf8;">~210</strong></span>
+                  <span style="color:var(--text-muted);">·</span>
+                  <span style="color:var(--text-muted);">Scenes: <strong id="metricScenes" style="color:#a78bfa;">~6-7</strong></span>
+                </div>
+              </div>
+              <textarea id="scriptInput" rows="3" placeholder="Enter your narration script or type a prompt like 'Explain AI agents (3 minutes)'..." required>Building the future with agentic intelligence. Fast, scalable video creation for developers.</textarea>
+              <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+                <button type="button" id="btnResearchScript" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px;">
+                  ✨ Auto-Research & Generate Script (Antigravity AI)
+                </button>
+                <span id="scriptGenSpinner" class="hidden mono" style="font-size:0.75rem; color:var(--accent);">⚡ Researching topic & generating scenes...</span>
+              </div>
             </div>
 
-            <div class="grid-3">
+            <div class="grid-4" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px;">
+              <div>
+                <label>Target Duration</label>
+                <select id="durationSelect">
+                  <option value="30s">30 sec (~70 words)</option>
+                  <option value="1:00 min">1:00 min (~140 words)</option>
+                  <option value="1:30 min" selected>1:30 min (~210 words)</option>
+                  <option value="2:00 min">2:00 min (~280 words)</option>
+                  <option value="3:00 min">3:00 min (~420 words)</option>
+                  <option value="5:00 min">5:00 min (~700 words)</option>
+                  <option value="auto">Auto (from script)</option>
+                </select>
+              </div>
+
               <div>
                 <label>Aspect Ratio</label>
                 <select id="ratioSelect">
@@ -312,10 +341,10 @@
               <div>
                 <label>Theme Style</label>
                 <select id="styleSelect">
-                  <option value="developer">Developer Plate (Dark / Code)</option>
+                  <option value="developer">Developer Plate (Dark)</option>
                   <option value="ink">Ink (Editorial)</option>
                   <option value="paper">Paper (Warm Academic)</option>
-                  <option value="signal">Signal (High Contrast Amber)</option>
+                  <option value="signal">Signal (Amber)</option>
                 </select>
               </div>
 
@@ -338,7 +367,7 @@
             <div id="jobError" class="alert-error hidden"></div>
 
             <button type="submit" id="btnGenerateVideo" class="btn btn-primary btn-block" style="padding:12px; font-size:0.95rem;">
-              <span>Generate 1080p B-Roll Video</span>
+              <span>Generate B-Roll Video</span>
             </button>
           </form>
         </div>
@@ -436,6 +465,14 @@
 
       const createVideoForm = document.getElementById('createVideoForm');
       const scriptInput = document.getElementById('scriptInput');
+      const durationSelect = document.getElementById('durationSelect');
+      const metricDuration = document.getElementById('metricDuration');
+      const metricWords = document.getElementById('metricWords');
+      const metricScenes = document.getElementById('metricScenes');
+      const btnResearchScript = document.getElementById('btnResearchScript');
+      const scriptGenSpinner = document.getElementById('scriptGenSpinner');
+      const historyList = document.getElementById('historyList');
+      const btnRefreshHistory = document.getElementById('btnRefreshHistory');
       const ratioSelect = document.getElementById('ratioSelect');
       const styleSelect = document.getElementById('styleSelect');
       const voiceSelect = document.getElementById('voiceSelect');
@@ -455,19 +492,22 @@
       const linkManifest = document.getElementById('linkManifest');
       const renderPathDisplay = document.getElementById('renderPathDisplay');
 
-      // Initialize
-      function init() {
-        if (currentAuth) {
-          showStudio();
-        } else {
-          showAuth();
-          checkHostAuth();
-        }
-      }
+      const DURATION_BENCHMARKS = {
+        '30s': { dur: '30 sec', words: '~70', scenes: '2-3' },
+        '1:00 min': { dur: '1:00 min', words: '~140', scenes: '4-5' },
+        '1:30 min': { dur: '1:30 min', words: '~210', scenes: '6-7' },
+        '2:00 min': { dur: '2:00 min', words: '~280', scenes: '8-9' },
+        '3:00 min': { dur: '3:00 min', words: '~420', scenes: '10-12' },
+        '5:00 min': { dur: '5:00 min', words: '~700', scenes: '15-18' },
+        'auto': { dur: 'Auto', words: 'dynamic', scenes: 'dynamic' },
+      };
 
-      function showAuth() {
-        authView.classList.remove('hidden');
-        studioView.classList.add('hidden');
+      function updateDurationMetrics() {
+        const val = durationSelect ? durationSelect.value : '1:30 min';
+        const bench = DURATION_BENCHMARKS[val] || DURATION_BENCHMARKS['1:30 min'];
+        if (metricDuration) metricDuration.textContent = bench.dur;
+        if (metricWords) metricWords.textContent = bench.words;
+        if (metricScenes) metricScenes.textContent = bench.scenes;
       }
 
       function showStudio() {
@@ -475,6 +515,8 @@
         studioView.classList.remove('hidden');
         currentUserDisplay.textContent = currentAuth.email || 'developer@antigravity';
         fetchKeys();
+        fetchHistory();
+        updateDurationMetrics();
       }
 
       // 1. Check Host Antigravity Session
@@ -621,6 +663,147 @@
         }
       });
 
+      // Duration metrics listener
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateDurationMetrics);
+      }
+
+      // Script Research & Expansion Button
+      if (btnResearchScript) {
+        btnResearchScript.addEventListener('click', async () => {
+          const promptText = scriptInput.value.trim();
+          if (!promptText) {
+            alert('Please enter a topic or prompt first (e.g. Explain AI agents).');
+            return;
+          }
+          btnResearchScript.disabled = true;
+          if (scriptGenSpinner) scriptGenSpinner.classList.remove('hidden');
+
+          try {
+            const dur = (durationSelect && durationSelect.value !== 'auto') ? durationSelect.value : '1:30 min';
+            const res = await fetch('/api/v1/script/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ topic: promptText, duration: dur }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              scriptInput.value = data.script;
+              if (metricDuration) metricDuration.textContent = data.duration_formatted;
+              if (metricWords) metricWords.textContent = `${data.actual_words} words`;
+              if (metricScenes) metricScenes.textContent = `${data.scene_count} scenes`;
+            } else {
+              const err = await res.json();
+              alert(err.message || 'Script generation failed');
+            }
+          } catch (err) {
+            alert('Connection error generating script with Antigravity');
+          } finally {
+            btnResearchScript.disabled = false;
+            if (scriptGenSpinner) scriptGenSpinner.classList.add('hidden');
+          }
+        });
+      }
+
+      // SQLite History Sidebar Functions
+      async function fetchHistory() {
+        if (!historyList) return;
+        try {
+          const res = await fetch('/api/v1/jobs');
+          if (!res.ok) return;
+          const jobs = await res.json();
+          if (!jobs || jobs.length === 0) {
+            historyList.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:20px 0;">No videos generated yet.</div>';
+            return;
+          }
+
+          historyList.innerHTML = jobs.map(j => {
+            const title = escapeHtml(j.friendly_title || j.job_id);
+            const statusClass = j.status === 'succeeded' ? 'badge-success' : (j.status === 'failed' ? 'badge' : 'badge-warning');
+            const statusStyle = j.status === 'failed' ? 'background:rgba(239,68,68,0.15); color:var(--danger);' : '';
+            const statusText = j.status.toUpperCase();
+            const dur = j.duration_seconds ? `${Math.round(j.duration_seconds)}s` : '';
+            return `
+              <div class="history-item" data-id="${j.job_id}" style="background:#121215; border:1px solid #27272a; border-radius:8px; padding:10px; cursor:pointer; display:flex; flex-direction:column; gap:6px; transition:border-color 0.15s ease;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                  <span class="history-title" style="font-weight:600; font-size:0.85rem; color:#fff; word-break:break-word; flex:1;">${title}</span>
+                  <button type="button" class="btn-rename" data-id="${j.job_id}" data-title="${title}" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem; padding:2px;" title="Rename Title">✏️</button>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7rem; font-family:var(--mono); color:var(--text-muted);">
+                  <span class="badge ${statusClass}" style="font-size:0.65rem; padding:1px 6px; ${statusStyle}">${statusText}</span>
+                  <span>${dur}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Click on item loads it into player
+          historyList.querySelectorAll('.history-item').forEach(el => {
+            el.addEventListener('click', (e) => {
+              if (e.target.closest('.btn-rename')) return;
+              const jid = el.getAttribute('data-id');
+              loadJobIntoPlayer(jid);
+            });
+          });
+
+          // Rename button
+          historyList.querySelectorAll('.btn-rename').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const jid = btn.getAttribute('data-id');
+              const curTitle = btn.getAttribute('data-title');
+              const newTitle = prompt('Enter friendly title for this video:', curTitle);
+              if (newTitle && newTitle.trim() && newTitle.trim() !== curTitle) {
+                await renameJobTitle(jid, newTitle.trim());
+              }
+            });
+          });
+        } catch (e) {}
+      }
+
+      async function renameJobTitle(jobId, newTitle) {
+        try {
+          const res = await fetch(`/api/v1/jobs/${jobId}/title`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle }),
+          });
+          if (res.ok) {
+            fetchHistory();
+          }
+        } catch (e) {}
+      }
+
+      async function loadJobIntoPlayer(jobId) {
+        jobStatusCard.classList.remove('hidden');
+        jobIdDisplay.textContent = `Job: ${jobId}`;
+        try {
+          const res = await fetch(`/api/v1/jobs/${jobId}`);
+          if (res.ok) {
+            const job = await res.json();
+            updateJobUI(job);
+            if (job.status === 'succeeded') {
+              const videoUrl = `/api/v1/jobs/${jobId}/artifacts/video_16_9.mp4`;
+              videoPlayer.src = videoUrl;
+              btnDownloadMp4.href = videoUrl;
+              linkTimeline.href = `/api/v1/jobs/${jobId}/artifacts/timeline.json`;
+              linkManifest.href = `/api/v1/jobs/${jobId}/artifacts/manifest.json`;
+              renderPathDisplay.textContent = `Saved in: ./renders/${jobId}/`;
+              playerSection.classList.remove('hidden');
+            }
+          }
+        } catch (e) {}
+      }
+
+      function escapeHtml(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      if (btnRefreshHistory) {
+        btnRefreshHistory.addEventListener('click', fetchHistory);
+      }
+
       // 7. Video Studio Generation & Polling
       createVideoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -653,18 +836,19 @@
           const data = await res.json();
           if (res.status === 202) {
             currentJobId = data.job_id;
+            fetchHistory();
             startJobPolling(currentJobId, ratio);
           } else {
             jobError.textContent = data.message || 'Job submission failed';
             jobError.classList.remove('hidden');
             btnGenerateVideo.disabled = false;
-            btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
+            btnGenerateVideo.innerHTML = '<span>Generate B-Roll Video</span>';
           }
         } catch (err) {
           jobError.textContent = 'Network error initiating video job';
           jobError.classList.remove('hidden');
           btnGenerateVideo.disabled = false;
-          btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
+          btnGenerateVideo.innerHTML = '<span>Generate B-Roll Video</span>';
         }
       });
 
@@ -685,7 +869,8 @@
               if (job.status === 'succeeded') {
                 clearInterval(activePollInterval);
                 btnGenerateVideo.disabled = false;
-                btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
+                btnGenerateVideo.innerHTML = '<span>Generate B-Roll Video</span>';
+                fetchHistory();
 
                 // Display video player
                 const safeRatio = ratio.replace(':', '_');
@@ -699,7 +884,8 @@
               } else if (job.status === 'failed') {
                 clearInterval(activePollInterval);
                 btnGenerateVideo.disabled = false;
-                btnGenerateVideo.innerHTML = '<span>Generate 1080p B-Roll Video</span>';
+                btnGenerateVideo.innerHTML = '<span>Generate B-Roll Video</span>';
+                fetchHistory();
                 jobError.textContent = `Rendering failed: ${JSON.stringify(job.error || 'Unknown error')}`;
                 jobError.classList.remove('hidden');
               }

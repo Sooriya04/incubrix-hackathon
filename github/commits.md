@@ -4,14 +4,17 @@
 
 ```bash
 git add .
-git commit -m "feat(auth): integrate official Google Antigravity OAuth client and vanilla instant-load frontend
+git commit -m "feat(studio): add SQLite history sidebar, duration selector, AI script research, and lightweight rendering safeguards
 
-- Fix Google OAuth 401 invalid_client by integrating official Antigravity OAuth client credentials from 9router (`1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com`)
-- Add automatic Google OAuth callback handler (`/api/v1/auth/callback`) with live code exchange and profile fetch
-- Eliminate in-browser Babel and external React CDN dependencies; convert frontend to pure vanilla HTML/CSS/JS (<50ms load time, 100% offline capable)
-- Support 1-click connect with existing host Antigravity CLI session (`~/.gemini/antigravity-cli/antigravity-oauth-token`)
-- Add others/ to .gitignore
-- All 35 tests passing cleanly across full pytest suite"
+- Implement SQLite database backend (data/incubrix.db) with jobs table and full history persistence
+- Add History Sidebar in static/index.html with friendly title renaming, status badges, and 1-click video loading
+- Add Target Duration selector (30s, 1:00, 1:30, 2:00, 3:00, 5:00 min) with live word-count and scene benchmarks
+- Add AI topic research & script generation engine (incubrix/script_generator.py) using Antigravity CLI (gemini-3.8-flash-high)
+- Implement CPU/RAM rendering safeguards (concurrency 2, swiftshader, 720p scale) and graceful preview fallback
+- Remove robotic 'Scene 1' visual badges and voiceover text prefixes
+- Enhance speech synthesis reliability with 3-retry backoff and local espeak-ng fallback
+- Add video-script-researcher skill instruction file in .agents/skills/ and skills/
+- Add full test suite in tests/test_history_and_script.py (all tests passing)"
 ```
 
 ---
@@ -19,11 +22,16 @@ git commit -m "feat(auth): integrate official Google Antigravity OAuth client an
 ## Commit Details
 
 * **Type:** `feat`
-* **Scope:** `auth`
-* **Title:** `integrate official Google Antigravity OAuth client and vanilla instant-load frontend`
+* **Scope:** `studio`
+* **Title:** `add SQLite history sidebar, duration selector, AI script research, and lightweight rendering safeguards`
 * **Files Included:**
-  * `.gitignore`: Excluded `others/` directory
-  * `incubrix/api.py`: Official Antigravity OAuth client ID/secret, Google OAuth redirect, callback handler, and host token bridge
-  * `static/index.html`: Zero-dependency vanilla HTML/CSS/JS studio UI with instant <50ms load
-  * `tests/test_headless_agy.py`: Increased test poll iterations to ensure robust CI execution
+  * `incubrix/storage.py`: SQLite `data/incubrix.db` integration, job listing, friendly title renaming, atomic disk sync
+  * `incubrix/script_generator.py`: AI topic research and duration calibration engine using Antigravity CLI
+  * `incubrix/api.py`: History endpoints (`/api/v1/jobs`, `/api/v1/jobs/{id}/title`), script research endpoint (`/api/v1/script/generate`), and auto-expansion
+  * `incubrix/runner.py`: Lightweight CPU/RAM safeguards (`--concurrency 2`, `--gl swiftshader`, `--scale 0.67`) and graceful preview fallback
+  * `incubrix/audio.py`: Reliable speech synthesis (3 retries + `espeak-ng` fallback) and 'Scene 1' prefix stripper
+  * `remotion/BrollVideo.tsx`: Removed `[SCENE 01 · ...]` debug badge
+  * `static/index.html`: SQLite History Sidebar, Duration dropdown, live metrics bar, AI script generator button, and inline title renamer
+  * `.agents/skills/video-script-researcher/SKILL.md` & `skills/video-script-researcher/SKILL.md`: Comprehensive skill instructions
+  * `tests/test_history_and_script.py`: Unit tests for duration parsing, voiceover cleaning, SQLite storage, and API endpoints
   * `github/commits.md`: Single commit tracking file

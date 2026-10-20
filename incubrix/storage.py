@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
+import sqlite3
 import threading
 from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
@@ -130,17 +132,104 @@ class IdempotencyManager:
 
 
 class JobStore:
-    """Thread-safe, asyncio-compatible file-backed job store.
+    """Thread-safe, asyncio-compatible SQLite and file-backed job store.
 
-    Stores each job's metadata as JSON under data/jobs/{job_id}/job.json.
+    Stores each job's metadata in SQLite data/incubrix.db and mirrors JSON under data/jobs/{job_id}/job.json.
     """
 
-    def __init__(self, jobs_dir: Path, idempotency_manager: IdempotencyManager):
+    def __init__(self, jobs_dir: Path, idempotency_manager: IdempotencyManager, db_path: Optional[Path] = None):
         self.jobs_dir = jobs_dir
         self.idempotency_manager = idempotency_manager
+        self.db_path = db_path or (jobs_dir.parent / "incubrix.db")
         self._lock = threading.RLock()
         self._async_lock = asyncio.Lock()
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_sqlite()
+
+    def _get_db_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(str(self.db_path), timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_sqlite(self) -> None:
+        with self._lock:
+            with self._get_db_conn() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        job_id TEXT PRIMARY KEY,
+                        friendly_title TEXT,
+                        status TEXT,
+                        progress INTEGER,
+                        stage TEXT,
+                        created_at TEXT,
+                        started_at TEXT,
+                        completed_at TEXT,
+                        failed_at TEXT,
+                        duration_seconds REAL,
+                        script_snippet TEXT,
+                        data_json TEXT
+                    )
+                """)
+                conn.commit()
+
+            # Seed existing disk jobs if table is empty
+            try:
+                with self._get_db_conn() as conn:
+                    count = conn.execute("SELECT COUNT(*) as cnt FROM jobs").fetchone()["cnt"]
+                    if count == 0 and self.jobs_dir.exists():
+                        for child in self.jobs_dir.iterdir():
+                            if child.is_dir():
+                                jf = child / "job.json"
+                                if jf.exists():
+                                    try:
+                                        with open(jf, "r", encoding="utf-8") as f:
+                                            data = json.load(f)
+                                        rec = JobRecord.model_validate(data)
+                                        self._sqlite_upsert(rec, conn)
+                                    except Exception:
+                                        pass
+                        conn.commit()
+            except Exception:
+                pass
+
+    def _sqlite_upsert(self, job: JobRecord, conn: sqlite3.Connection) -> None:
+        title = job.friendly_title
+        if not title:
+            script = ""
+            if job.request and isinstance(job.request, dict):
+                script = str(job.request.get("script") or "")
+            words = [w for w in script.replace("\n", " ").split() if w]
+            title = " ".join(words[:5]).rstrip(".,!?:") if words else f"Video {job.job_id[:8]}"
+            job.friendly_title = title
+
+        script_snippet = ""
+        if job.request and isinstance(job.request, dict):
+            script_snippet = str(job.request.get("script") or "")[:200]
+
+        data_json = json.dumps(job.model_dump(), default=str)
+        conn.execute("""
+            INSERT INTO jobs (
+                job_id, friendly_title, status, progress, stage, created_at,
+                started_at, completed_at, failed_at, duration_seconds, script_snippet, data_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(job_id) DO UPDATE SET
+                friendly_title = COALESCE(excluded.friendly_title, jobs.friendly_title),
+                status = excluded.status,
+                progress = excluded.progress,
+                stage = excluded.stage,
+                created_at = excluded.created_at,
+                started_at = excluded.started_at,
+                completed_at = excluded.completed_at,
+                failed_at = excluded.failed_at,
+                duration_seconds = excluded.duration_seconds,
+                script_snippet = excluded.script_snippet,
+                data_json = excluded.data_json
+        """, (
+            job.job_id, title, job.status, job.progress, job.stage, job.created_at,
+            job.started_at, job.completed_at, job.failed_at, job.duration_seconds,
+            script_snippet, data_json
+        ))
 
     def _job_dir(self, job_id: str) -> Path:
         return self.jobs_dir / job_id
@@ -162,15 +251,35 @@ class JobStore:
     # ==========================================================================
 
     def save_job_sync(self, job: JobRecord) -> JobRecord:
-        """Persist or overwrite a job record to disk."""
+        """Persist or overwrite a job record to disk and SQLite."""
         with self._lock:
+            # 1. Write to SQLite
+            try:
+                with self._get_db_conn() as conn:
+                    self._sqlite_upsert(job, conn)
+                    conn.commit()
+            except Exception:
+                pass
+
+            # 2. Atomic disk write
             path = self._job_path(job.job_id)
             self._atomic_write_job(path, job.model_dump())
             return job
 
     def get_job_sync(self, job_id: str) -> Optional[JobRecord]:
-        """Load a job record from disk by job_id."""
+        """Load a job record from SQLite or disk by job_id."""
         with self._lock:
+            try:
+                with self._get_db_conn() as conn:
+                    row = conn.execute("SELECT data_json, friendly_title FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+                    if row:
+                        data = json.loads(row["data_json"])
+                        if row["friendly_title"]:
+                            data["friendly_title"] = row["friendly_title"]
+                        return JobRecord.model_validate(data)
+            except Exception:
+                pass
+
             path = self._job_path(job_id)
             if not path.exists():
                 return None
@@ -198,9 +307,52 @@ class JobStore:
             self.save_job_sync(updated_job)
             return updated_job
 
-    def list_jobs_sync(self, limit: int = 50, offset: int = 0) -> List[JobRecord]:
-        """List jobs ordered by creation date descending."""
+    def update_job_title_sync(self, job_id: str, new_title: str) -> JobRecord:
+        """Update friendly title for an existing job record."""
         with self._lock:
+            job = self.get_job_sync(job_id)
+            if not job:
+                raise IncuBrixAPIException(
+                    status_code=404,
+                    code="JOB_NOT_FOUND",
+                    message=f"Job '{job_id}' not found.",
+                    details={"job_id": job_id},
+                )
+            job.friendly_title = new_title.strip()
+            try:
+                with self._get_db_conn() as conn:
+                    conn.execute("UPDATE jobs SET friendly_title = ? WHERE job_id = ?", (job.friendly_title, job_id))
+                    conn.commit()
+            except Exception:
+                pass
+            path = self._job_path(job_id)
+            self._atomic_write_job(path, job.model_dump())
+            return job
+
+    def list_jobs_sync(self, limit: int = 50, offset: int = 0) -> List[JobRecord]:
+        """List jobs ordered by creation date descending from SQLite or disk."""
+        with self._lock:
+            try:
+                with self._get_db_conn() as conn:
+                    rows = conn.execute(
+                        "SELECT data_json, friendly_title FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                        (limit, offset)
+                    ).fetchall()
+                    if rows:
+                        results = []
+                        for r in rows:
+                            try:
+                                d = json.loads(r["data_json"])
+                                if r["friendly_title"]:
+                                    d["friendly_title"] = r["friendly_title"]
+                                results.append(JobRecord.model_validate(d))
+                            except Exception:
+                                continue
+                        return results
+            except Exception:
+                pass
+
+            # Disk fallback
             jobs: List[JobRecord] = []
             if not self.jobs_dir.exists():
                 return []
@@ -214,9 +366,22 @@ class JobStore:
                             jobs.append(JobRecord.model_validate(data))
                         except Exception:
                             continue
-            # Sort descending by created_at
             jobs.sort(key=lambda j: j.created_at, reverse=True)
             return jobs[offset : offset + limit]
+
+    def delete_job_sync(self, job_id: str) -> bool:
+        """Delete a job record from SQLite and disk."""
+        with self._lock:
+            try:
+                with self._get_db_conn() as conn:
+                    conn.execute("DELETE FROM jobs WHERE job_id = ?", (job_id,))
+                    conn.commit()
+            except Exception:
+                pass
+            job_dir = self._job_dir(job_id)
+            if job_dir.exists():
+                shutil.rmtree(job_dir, ignore_errors=True)
+            return True
 
     def job_exists(self, job_id: str) -> bool:
         return self._job_path(job_id).exists()
@@ -237,9 +402,17 @@ class JobStore:
         async with self._async_lock:
             return self.update_job_sync(job_id, updates)
 
+    async def update_job_title(self, job_id: str, new_title: str) -> JobRecord:
+        async with self._async_lock:
+            return self.update_job_title_sync(job_id, new_title)
+
     async def list_jobs(self, limit: int = 50, offset: int = 0) -> List[JobRecord]:
         async with self._async_lock:
             return self.list_jobs_sync(limit=limit, offset=offset)
+
+    async def delete_job(self, job_id: str) -> bool:
+        async with self._async_lock:
+            return self.delete_job_sync(job_id)
 
 
 _job_store: Optional[JobStore] = None

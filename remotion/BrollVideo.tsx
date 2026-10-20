@@ -76,9 +76,7 @@ const FallbackPlateScene: React.FC<{
   cfg: (typeof RATIOS)[RatioKey];
 }> = ({ scene, ratio, theme, cfg }) => {
   const isVertical = ratio === '9:16';
-  const headline = scene.text || scene.voiceText || scene.title || `Scene ${scene.id}`;
-  const sceneNum = scene.id < 10 ? `0${scene.id}` : `${scene.id}`;
-  const badgeLabel = scene.title || `SCENE ${sceneNum}`;
+  const headline = scene.text || scene.voiceText || scene.title || '';
 
   return (
     <div
@@ -110,24 +108,6 @@ const FallbackPlateScene: React.FC<{
         }}
       />
 
-      {/* Dynamic scene badge */}
-      <div
-        style={{
-          fontFamily: FONTS.mono,
-          fontSize: '15px',
-          color: theme.accent,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          marginBottom: '28px',
-          padding: '6px 16px',
-          border: `1px solid ${theme.line}`,
-          backgroundColor: theme.surface,
-          borderRadius: '4px',
-          fontWeight: 600,
-        }}
-      >
-        [SCENE {sceneNum} · {badgeLabel}]
-      </div>
 
       {/* Main dynamic narration headline */}
       <div

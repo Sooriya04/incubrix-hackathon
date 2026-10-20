@@ -367,6 +367,7 @@ class JobStatusResponse(BaseModel):
     estimated_remaining_seconds: Optional[int] = None
     error: Optional[ErrorDetail] = None
     artifacts: Optional[JobArtifacts] = None
+    friendly_title: Optional[str] = None
 
 
 # ==============================================================================
@@ -397,6 +398,7 @@ class JobRecord(BaseModel):
     estimated_remaining_seconds: Optional[int] = None
     error: Optional[ErrorDetail] = None
     artifacts: Optional[JobArtifacts] = None
+    friendly_title: Optional[str] = None
 
     # Internal job attributes
     request: Optional[Dict[str, Any]] = None
@@ -433,4 +435,5 @@ class JobRecord(BaseModel):
             estimated_remaining_seconds=self.estimated_remaining_seconds,
             error=self.error,
             artifacts=self.artifacts,
+            friendly_title=self.friendly_title,
         )

@@ -54,14 +54,17 @@ def segment_script_into_scenes(script: str) -> List[Dict[str, Any]]:
 
     scenes = []
     for idx, sentence in enumerate(raw_sentences, 1):
-        words = sentence.split()
+        clean_text = re.sub(r"(?i)^(?:\[?\s*scene\s*\d+\s*[:\-\]]?|\(\s*scene\s*\d+\s*\))\s*", "", sentence).strip()
+        if not clean_text:
+            clean_text = sentence
+        words = clean_text.split()
         short_title = " ".join(words[:min(4, len(words))]).rstrip(",.!?")
         scenes.append({
             "id": idx,
             "name": f"Scene{idx:02d}",
             "title": short_title.upper() if short_title else f"SCENE {idx:02d}",
-            "text": sentence,
-            "visual_hint": sentence[:80],
+            "text": clean_text,
+            "visual_hint": clean_text[:80],
         })
     return scenes
 
@@ -77,12 +80,17 @@ def extract_scenes_from_request(job_request: Dict[str, Any]) -> List[Dict[str, A
             else:
                 text = getattr(sc, "text", "")
                 vhint = getattr(sc, "visual_hint", None)
+            clean_text = re.sub(r"(?i)^(?:\[?\s*scene\s*\d+\s*[:\-\]]?|\(\s*scene\s*\d+\s*\))\s*", "", text).strip()
+            if not clean_text:
+                clean_text = text
+            words = clean_text.split()
+            short_title = " ".join(words[:min(4, len(words))]).rstrip(",.!?")
             scenes.append({
                 "id": idx,
                 "name": f"Scene{idx:02d}",
-                "title": f"SCENE {idx:02d}",
-                "text": text,
-                "visual_hint": vhint,
+                "title": short_title.upper() if short_title else f"SCENE {idx:02d}",
+                "text": clean_text,
+                "visual_hint": vhint or clean_text[:80],
             })
         return scenes
 
@@ -130,9 +138,12 @@ async def synthesize_scene_audio(
     out_file.parent.mkdir(parents=True, exist_ok=True)
     voice_name = VOICE_MAP.get(voice, voice) or DEFAULT_VOICE
 
+    clean_text = re.sub(r"(?i)^(?:\[?\s*scene\s*\d+\s*[:\-\]]?|\(\s*scene\s*\d+\s*\))\s*", "", text).strip()
+    speech_text = clean_text or text
+
     if mock:
         # Fast offline synthesis in milliseconds via ffmpeg
-        words_count = max(1, len(text.split()))
+        words_count = max(1, len(speech_text.split()))
         est_duration = max(1.2, words_count * 0.35)
         cmd = [
             "ffmpeg",
@@ -150,27 +161,58 @@ async def synthesize_scene_audio(
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return
 
-    try:
-        comm = edge_tts.Communicate(text=text, voice=voice_name)
-        await comm.save(str(out_file))
-    except Exception:
-        # Fallback to generating a silent/placeholder WAV with speech metadata via ffmpeg
-        words_count = max(1, len(text.split()))
-        est_duration = max(1.2, words_count * 0.35)
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=r=24000:cl=mono",
-            "-t",
-            f"{est_duration:.2f}",
-            "-c:a",
-            "libmp3lame",
-            str(out_file),
-        ]
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # 1. Edge-TTS online synthesis with 3 retries
+    for attempt in range(3):
+        try:
+            comm = edge_tts.Communicate(text=speech_text, voice=voice_name)
+            await comm.save(str(out_file))
+            if out_file.exists() and out_file.stat().st_size > 500:
+                return
+        except Exception:
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+
+    # 2. Local espeak-ng offline synthesis fallback (never silent)
+    if shutil.which("espeak-ng"):
+        wav_tmp = out_file.with_suffix(".espeak.wav")
+        try:
+            subprocess.run(
+                ["espeak-ng", "-w", str(wav_tmp), speech_text],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", str(wav_tmp), "-c:a", "libmp3lame", str(out_file)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if wav_tmp.exists():
+                wav_tmp.unlink()
+            if out_file.exists() and out_file.stat().st_size > 500:
+                return
+        except Exception:
+            if wav_tmp.exists():
+                wav_tmp.unlink()
+
+    # 3. Final fallback: silent placeholder with speech duration
+    words_count = max(1, len(speech_text.split()))
+    est_duration = max(1.2, words_count * 0.35)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=24000:cl=mono",
+        "-t",
+        f"{est_duration:.2f}",
+        "-c:a",
+        "libmp3lame",
+        str(out_file),
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def compute_word_timings(duration: float, text: str) -> List[Dict[str, Any]]:

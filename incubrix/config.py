@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
 
     JOBS_DIR: Path = Field(default=Path("./data/jobs"))
+    DB_PATH: Path = Field(default=Path("./data/incubrix.db"))
     STORAGE_DIR: Path = Field(default=Path("./data/storage"))
     CACHE_DIR: Path = Field(default=Path("./data/cache"))
     RENDERS_DIR: Path = Field(default=Path("./renders"))
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
         default_factory=lambda: shutil.which("agy") or "/home/sooriya/.local/bin/agy"
     )
     AGY_MOCK: bool = Field(default=False)
-    JOB_TIMEOUT_SECONDS: int = Field(default=300)
+    JOB_TIMEOUT_SECONDS: int = Field(default=900)
     WEBHOOK_SECRET: str = Field(default="secret")
     REQUIRE_IDEMPOTENCY_KEY: bool = Field(default=False)
 

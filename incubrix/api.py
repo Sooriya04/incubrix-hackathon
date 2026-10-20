@@ -6,6 +6,7 @@ Implements all endpoints, middleware, and standardized error handling per API_CO
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import secrets
 import time
 from typing import Any, Dict, Optional
@@ -17,7 +18,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from incubrix.config import settings
 from incubrix.models import (
@@ -32,6 +33,11 @@ from incubrix.models import (
     SwapClipRequest,
 )
 from incubrix.runner import runner
+from incubrix.script_generator import (
+    extract_topic_and_duration_from_prompt,
+    generate_script_from_topic,
+    parse_duration_seconds,
+)
 from incubrix.storage import compute_payload_hash, job_store
 
 
@@ -456,6 +462,20 @@ async def create_broll_job(request: Request):
                 details={"loc": loc, "type": first.get("type")},
             )
 
+        # Auto-expand if script is a prompt mentioning duration or short instruction
+        friendly_title = None
+        if req.script:
+            words = req.script.strip().split()
+            first_few = " ".join(words[:5]).rstrip(".,!?:")
+            friendly_title = first_few if len(first_few) > 2 else None
+            extracted_topic, dur_sec = extract_topic_and_duration_from_prompt(req.script)
+            has_time_marker = bool(re.search(r"\(?\b(?:\d+:\d+|\d+\s*(?:minutes?|mins?|seconds?|secs?|s|m))\b\)?", req.script, re.IGNORECASE))
+            if has_time_marker or (len(words) < 12 and any(k in req.script.lower() for k in ["explain", "create", "make", "video", "about", "show", "how"])):
+                gen = await generate_script_from_topic(topic=extracted_topic, duration_sec=dur_sec)
+                req.script = gen["script"]
+                data["script"] = gen["script"]
+                friendly_title = extracted_topic
+
         # Calculate payload hash
         payload_hash = compute_payload_hash(data)
 
@@ -487,6 +507,7 @@ async def create_broll_job(request: Request):
             stage="queued",
             created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             request=req.model_dump(),
+            friendly_title=friendly_title,
             idempotency_key=idempotency_key,
             correlation_id=correlation_id,
         )
@@ -506,6 +527,90 @@ async def create_broll_job(request: Request):
             },
         )
 
+
+
+class RenameTitleRequest(BaseModel):
+    title: str
+
+
+class ScriptGenRequest(BaseModel):
+    topic: str
+    duration: Optional[str] = "1:30 min"
+    duration_sec: Optional[int] = None
+
+
+@app.get(
+    "/api/v1/jobs",
+    summary="List all video generation jobs for the history sidebar",
+)
+@app.get(
+    "/api/v1/history",
+    summary="Alias to list all jobs for the history sidebar",
+)
+async def list_jobs_endpoint(limit: int = 50, offset: int = 0):
+    jobs = await job_store.list_jobs(limit=limit, offset=offset)
+    return [
+        {
+            "job_id": j.job_id,
+            "friendly_title": j.friendly_title or (
+                " ".join(j.request.get("script", "").split()[:5]).rstrip(".,!?:")
+                if j.request and j.request.get("script")
+                else f"Video {j.job_id[:8]}"
+            ),
+            "status": j.status,
+            "progress": j.progress,
+            "stage": j.stage,
+            "created_at": j.created_at,
+            "duration_seconds": j.duration_seconds,
+            "video_url": f"/api/v1/jobs/{j.job_id}/artifacts/video_16_9.mp4" if j.status == "succeeded" else None,
+            "script_preview": (j.request.get("script", "")[:120] if j.request else ""),
+        }
+        for j in jobs
+    ]
+
+
+@app.patch(
+    "/api/v1/jobs/{job_id}/title",
+    response_model=JobStatusResponse,
+    summary="Rename a job's friendly title",
+)
+async def rename_job_title(job_id: str, payload: RenameTitleRequest):
+    if not payload.title or not payload.title.strip():
+        raise IncuBrixAPIException(
+            status_code=400,
+            code="INVALID_TITLE",
+            message="Title cannot be empty.",
+            details={"field": "title"},
+        )
+    updated = await job_store.update_job_title(job_id, payload.title.strip())
+    return updated.to_status_response()
+
+
+@app.delete(
+    "/api/v1/jobs/{job_id}",
+    summary="Delete a job record and artifacts from history",
+)
+async def delete_job_endpoint(job_id: str):
+    success = await job_store.delete_job(job_id)
+    return {"deleted": success, "job_id": job_id}
+
+
+@app.post(
+    "/api/v1/script/generate",
+    summary="AI topic research & script generator",
+)
+async def generate_script_endpoint(req: ScriptGenRequest):
+    topic = req.topic.strip()
+    if not topic:
+        raise IncuBrixAPIException(
+            status_code=400,
+            code="EMPTY_TOPIC",
+            message="Topic cannot be empty.",
+            details={"field": "topic"},
+        )
+    d_sec = req.duration_sec or parse_duration_seconds(req.duration or "1:30 min")
+    res = await generate_script_from_topic(topic=topic, duration_sec=d_sec)
+    return res
 
 
 @app.get(
