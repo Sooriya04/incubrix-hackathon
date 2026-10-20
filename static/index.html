@@ -164,68 +164,24 @@
         </div>
       </div>
 
-      <!-- Host Antigravity Detected Banner -->
-      <div id="hostAuthBanner" class="banner hidden">
-        <div class="banner-title">
-          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent);"></span>
-          Antigravity CLI Session Active
-        </div>
-        <p style="color: #d4d4d8;">Host terminal has active credentials in <code class="mono" style="color:var(--accent)">~/.gemini/</code>.</p>
-        <button id="btnConnectHost" type="button" class="btn btn-primary btn-block" style="margin-top:4px;">
-           Connect Host Antigravity Session (1-Click)
-        </button>
-        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;"> or sign in via Google </div>
-        <a href="/api/v1/auth/google/login" class="btn btn-secondary btn-block" style="text-decoration:none; font-size:0.85rem;">
-           Direct Sign in with Google Account 
-        </a>
-      </div>
+      <div id="authError1" class="alert-error hidden"></div>
+      <div id="authStatus" style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding: 8px 0;">Checking session...</div>
 
-      <!-- Step 1: Request Link Form -->
-      <form id="requestCodeForm" style="display:flex; flex-direction:column; gap:14px;">
-        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;"> or sign in with custom email code </div>
-        <div>
-          <label>Google / Antigravity User Email</label>
-          <input type="email" id="authEmail" class="mono" placeholder="developer@antigravity.google" value="developer@antigravity.google" required>
-        </div>
-        <div id="authError1" class="alert-error hidden"></div>
-        <button type="submit" id="btnRequestCode" class="btn btn-outline btn-block">
-          Get Antigravity Google Auth Link
-        </button>
-        <p style="font-size:0.75rem; color:var(--text-muted); text-align:center;">
-          Generates Google Account consent link & device code
-        </p>
-      </form>
+      <a href="/api/v1/auth/google/login" class="btn btn-primary btn-block" style="text-decoration:none; margin-top:8px;">
+        Sign in with Google
+      </a>
 
-      <!-- Step 2: Verify Code Form -->
-      <form id="verifyCodeForm" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
-        <div class="banner">
-          <div class="banner-title">Google Auth Link Ready</div>
-          <a id="btnOpenGoogle" href="#" class="btn btn-secondary btn-block" style="font-size:0.8rem;">
-             Open Google Account Chooser 
-          </a>
-          <div style="font-size:0.75rem; color:var(--text-muted); line-height: 1.4;">
-            1. Click above to select Google account.<br>
-            2. Copy authorization code from Google.<br>
-            3. Paste code below to complete login.
-          </div>
-          <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-family:var(--mono); color:var(--text-muted); padding-top:4px; border-top:1px solid #27272a;">
-            <span>Device Code:</span>
-            <span id="displayDeviceCode" style="color:var(--accent); font-weight:700;"></span>
-          </div>
-        </div>
-
-        <div>
-          <label>Paste Authorization Code</label>
-          <input type="text" id="authCodeInput" class="mono" placeholder="Paste code (e.g. 4/0Aea... or AGY-...)" style="text-align:center;" required>
-        </div>
-        <div id="authError2" class="alert-error hidden"></div>
-        <button type="submit" id="btnVerifyCode" class="btn btn-primary btn-block">
-          Verify Authorization Code & Enter
-        </button>
-        <button type="button" id="btnBackToRequest" class="btn btn-outline btn-block" style="font-size:0.75rem; padding:6px;">
-           Back to Request Link
-        </button>
-      </form>
+      <!-- hidden stubs so JS doesn't break -->
+      <input type="hidden" id="authEmail" value="developer@antigravity.google">
+      <input type="hidden" id="authCodeInput">
+      <span id="displayDeviceCode" style="display:none;"></span>
+      <div id="authError2" class="hidden"></div>
+      <form id="requestCodeForm" style="display:none;"></form>
+      <form id="verifyCodeForm" style="display:none;"></form>
+      <button id="btnConnectHost" style="display:none;"></button>
+      <button id="btnOpenGoogle" style="display:none;"></button>
+      <button id="btnBackToRequest" style="display:none;"></button>
+      <div id="hostAuthBanner" style="display:none;"></div>
     </div>
   </div>
 
@@ -574,25 +530,29 @@
         }
       });
 
-      // 1. Check Host Antigravity Session
+      // 1. Check Host Antigravity Session — auto-connect if active
       async function checkHostAuth() {
+        const statusEl = document.getElementById('authStatus');
         try {
           const res = await fetch('/api/v1/auth/agy/status');
           if (res.ok) {
             const data = await res.json();
             if (data.authenticated) {
-              hostAuthBanner.classList.remove('hidden');
-              // Auto-connect if host has valid AGY credentials
+              if (statusEl) statusEl.textContent = 'Active session found. Connecting...';
               const connectRes = await fetch('/api/v1/auth/agy/host-connect', { method: 'POST' });
               if (connectRes.ok) {
                 const connectData = await connectRes.json();
                 currentAuth = { email: connectData.user, token: connectData.token, source: connectData.source };
                 localStorage.setItem('incubrix_auth', JSON.stringify(currentAuth));
                 showStudio();
+                return;
               }
             }
           }
-        } catch (e) {}
+          if (statusEl) statusEl.textContent = 'No active session. Sign in below.';
+        } catch (e) {
+          if (statusEl) statusEl.textContent = 'No active session. Sign in below.';
+        }
       }
 
       // 2. 1-Click Connect Host
