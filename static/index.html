@@ -174,17 +174,21 @@
         <button id="btnConnectHost" type="button" class="btn btn-primary btn-block" style="margin-top:4px;">
           ⚡ Connect Host Antigravity Session (1-Click)
         </button>
-        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in via browser —</div>
+        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in via Google —</div>
+        <a href="/api/v1/auth/google/login" class="btn btn-secondary btn-block" style="text-decoration:none; font-size:0.85rem;">
+          🌐 Direct Sign in with Google Account ↗
+        </a>
       </div>
 
       <!-- Step 1: Request Link Form -->
       <form id="requestCodeForm" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="text-align:center; color:#52525b; font-size:0.7rem; margin: 4px 0;">— or sign in with custom email code —</div>
         <div>
           <label>Google / Antigravity User Email</label>
           <input type="email" id="authEmail" class="mono" placeholder="developer@antigravity.google" value="developer@antigravity.google" required>
         </div>
         <div id="authError1" class="alert-error hidden"></div>
-        <button type="submit" id="btnRequestCode" class="btn btn-primary btn-block">
+        <button type="submit" id="btnRequestCode" class="btn btn-outline btn-block">
           Get Antigravity Google Auth Link
         </button>
         <p style="font-size:0.75rem; color:var(--text-muted); text-align:center;">
@@ -196,7 +200,7 @@
       <form id="verifyCodeForm" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
         <div class="banner">
           <div class="banner-title">Google Auth Link Ready</div>
-          <a id="btnOpenGoogle" href="#" target="_blank" class="btn btn-secondary btn-block" style="font-size:0.8rem;">
+          <a id="btnOpenGoogle" href="#" class="btn btn-secondary btn-block" style="font-size:0.8rem;">
             🔗 Open Google Account Chooser ↗
           </a>
           <div style="font-size:0.75rem; color:var(--text-muted); line-height: 1.4;">
@@ -510,14 +514,48 @@
         if (metricScenes) metricScenes.textContent = bench.scenes;
       }
 
+      function init() {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const err = urlParams.get('auth_error');
+          if (err && authError1) {
+            authError1.textContent = decodeURIComponent(err);
+            authError1.classList.remove('hidden');
+          }
+        } catch (e) {}
+
+        if (currentAuth && currentAuth.email) {
+          showStudio();
+        } else {
+          showAuth();
+          checkHostAuth();
+        }
+      }
+
+      function showAuth() {
+        authView.classList.remove('hidden');
+        studioView.classList.add('hidden');
+      }
+
       function showStudio() {
         authView.classList.add('hidden');
         studioView.classList.remove('hidden');
-        currentUserDisplay.textContent = currentAuth.email || 'developer@antigravity';
+        currentUserDisplay.textContent = (currentAuth && currentAuth.email) ? currentAuth.email : 'developer@antigravity';
         fetchKeys();
         fetchHistory();
         updateDurationMetrics();
       }
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'incubrix_auth' && e.newValue) {
+          try {
+            currentAuth = JSON.parse(e.newValue);
+            if (currentAuth && currentAuth.email) {
+              showStudio();
+            }
+          } catch (err) {}
+        }
+      });
 
       // 1. Check Host Antigravity Session
       async function checkHostAuth() {
