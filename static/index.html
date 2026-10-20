@@ -342,10 +342,16 @@
 
             <div class="grid-4" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px;">
               <div>
-                <label>Target Duration</label>
-                <input type="text" id="durationInput" value="1:30" placeholder="e.g. 30  or  1:30  or  2:30"
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label style="margin:0;">Target Duration</label>
+                  <label style="font-size:0.75rem; color:var(--accent); cursor:pointer; display:flex; align-items:center; gap:4px; margin:0;">
+                    <input type="checkbox" id="autoDurationToggle" checked style="cursor:pointer; accent-color:var(--accent);" />
+                    Auto Mode
+                  </label>
+                </div>
+                <input type="text" id="durationInput" value="Auto" placeholder="Auto or 30 or 1:30"
                   style="width:100%; background:var(--input-bg); color:var(--text); border:1px solid var(--card-border); padding:6px; border-radius:4px; font-family:var(--mono);">
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">seconds (30) or M:SS (1:30 = 1 min 30 sec)</div>
+                <div id="durationHelpText" style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;">Auto-calculated from script word count (~140 wpm)</div>
                 <!-- hidden stubs so JS proxy doesn't break -->
                 <input type="hidden" id="durationValueInput" value="90">
                 <input type="hidden" id="durationUnitSelect" value="s">
@@ -508,15 +514,56 @@
         'auto': { dur: 'Auto', words: 'dynamic', scenes: 'dynamic' },
       };
 
+      function calculateAutoDurationSeconds() {
+        const text = scriptInput ? scriptInput.value.trim() : '';
+        const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+        // Pacing: ~140 words per minute (~2.33 words/sec). Min 10s, max 600s.
+        if (words === 0) return 30;
+        const estimatedSec = Math.round((words / 140) * 60);
+        return Math.max(10, Math.min(600, estimatedSec));
+      }
+
       function getDurationSeconds() {
+        const autoToggle = document.getElementById('autoDurationToggle');
+        if (autoToggle && autoToggle.checked) {
+          return calculateAutoDurationSeconds();
+        }
         const raw = (document.getElementById('durationInput') || {}).value || '1:30';
         const trimmed = raw.trim();
+        if (trimmed.toLowerCase() === 'auto') {
+          return calculateAutoDurationSeconds();
+        }
         // M:SS format e.g. "1:30", "2:30"
         const colonMatch = trimmed.match(/^(\d+):(\d{1,2})$/);
         if (colonMatch) return parseInt(colonMatch[1], 10) * 60 + parseInt(colonMatch[2], 10);
         // plain seconds
         const num = parseInt(trimmed, 10);
-        return isNaN(num) ? 90 : Math.max(5, num);
+        return isNaN(num) ? calculateAutoDurationSeconds() : Math.max(5, num);
+      }
+
+      function syncDurationInputWithAuto() {
+        const autoToggle = document.getElementById('autoDurationToggle');
+        const durInput = document.getElementById('durationInput');
+        const helpText = document.getElementById('durationHelpText');
+        if (!durInput) return;
+
+        if (autoToggle && autoToggle.checked) {
+          const autoSec = calculateAutoDurationSeconds();
+          const mins = Math.floor(autoSec / 60);
+          const rem = autoSec % 60;
+          const fmt = mins > 0 ? `${mins}:${String(rem).padStart(2, '0')}` : `${autoSec}s`;
+          durInput.value = `Auto (${fmt})`;
+          durInput.disabled = true;
+          durInput.style.opacity = '0.75';
+          if (helpText) helpText.textContent = `Auto-calculated from script (${autoSec}s based on word count)`;
+        } else {
+          durInput.disabled = false;
+          durInput.style.opacity = '1';
+          if (durInput.value.startsWith('Auto')) {
+            durInput.value = '1:30';
+          }
+          if (helpText) helpText.textContent = 'Custom duration: seconds (30) or M:SS (1:30 = 1 min 30 sec)';
+        }
       }
 
       function updateDurationMetrics() {
@@ -560,6 +607,7 @@
         currentUserDisplay.textContent = (currentAuth && currentAuth.email) ? currentAuth.email : 'developer@antigravity';
         fetchKeys();
         fetchHistory();
+        syncDurationInputWithAuto();
         updateDurationMetrics();
       }
 
@@ -730,9 +778,25 @@
         }
       });
 
-      // Duration input listener
+      // Duration input & Auto Mode listeners
       const _durInputEl = document.getElementById('durationInput');
+      const _autoToggleEl = document.getElementById('autoDurationToggle');
       if (_durInputEl) _durInputEl.addEventListener('input', updateDurationMetrics);
+      if (_autoToggleEl) {
+        _autoToggleEl.addEventListener('change', () => {
+          syncDurationInputWithAuto();
+          updateDurationMetrics();
+        });
+      }
+      if (scriptInput) {
+        scriptInput.addEventListener('input', () => {
+          const autoToggle = document.getElementById('autoDurationToggle');
+          if (autoToggle && autoToggle.checked) {
+            syncDurationInputWithAuto();
+            updateDurationMetrics();
+          }
+        });
+      }
 
       // Script Research & Expansion Button
       if (btnResearchScript) {
