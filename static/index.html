@@ -144,6 +144,16 @@
       overflow: hidden; display: flex; align-items: center; justify-content: center;
     }
     video { width: 100%; height: 100%; object-fit: contain; }
+    .history-item:hover, .history-item.is-selected { border-color: var(--accent) !important; }
+    .details-script {
+      white-space: pre-wrap; line-height: 1.65; font-size: 0.9rem; color: #d4d4d8;
+      background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 8px;
+      padding: 14px; max-height: 260px; overflow-y: auto;
+    }
+    .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .detail-item { background: #121215; border: 1px solid var(--card-border); border-radius: 8px; padding: 10px; }
+    .detail-label { color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .detail-value { margin-top: 4px; font-family: var(--mono); font-size: 0.78rem; word-break: break-word; }
     .hidden { display: none !important; }
     .auth-wrapper {
       min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -201,6 +211,7 @@
           <span id="pixabayStatusText" class="mono" style="font-size:0.75rem; color:var(--text-muted);">Pixabay Checking...</span>
         </div>
         <span class="mono" id="currentUserDisplay" style="color:var(--text-muted);"></span>
+        <button id="btnNewScript" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 10px;">New Script</button>
         <button id="btnLogout" class="btn-logout">Logout</button>
       </div>
     </header>
@@ -215,7 +226,7 @@
             <span>Video History</span>
             <div style="display:flex; gap:6px; align-items:center;">
               <span class="badge" style="background:#18181b;">SQLite</span>
-              <button type="button" id="btnRefreshHistory" class="btn-outline" style="padding:2px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;" title="Refresh History"></button>
+              <button type="button" id="btnRefreshHistory" class="btn-outline" style="padding:4px 8px; border-radius:4px; font-size:0.7rem; cursor:pointer;" title="Refresh History">Refresh</button>
             </div>
           </div>
           <div id="historyList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; min-height:180px;">
@@ -245,10 +256,66 @@
         </div>
       </div>
 
-      <!-- Right Column: Video Studio Generator & Live Preview -->
+      <!-- Right Column: Generator, selected video details, and rendering status -->
       <div style="display:flex; flex-direction:column; gap:20px;">
+        <div id="selectedVideoCard" class="card hidden">
+          <div class="card-title">
+            <span>Video Details</span>
+            <button type="button" id="btnCreateNew" class="btn btn-secondary" style="font-size:0.75rem; padding:6px 10px;">New Script</button>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div>
+              <h2 id="selectedVideoTitle" style="font-size:1.05rem; line-height:1.3;">Selected video</h2>
+              <p id="selectedVideoStatus" class="mono" style="font-size:0.75rem; color:var(--text-muted); margin-top:5px;"></p>
+            </div>
+            <span id="selectedVideoBadge" class="badge">QUEUED</span>
+          </div>
+          <div id="selectedVideoPlayer" class="video-container hidden">
+            <video id="selectedVideoElement" controls playsinline>Your browser does not support HTML5 video.</video>
+          </div>
+          <div class="details-grid">
+            <div class="detail-item"><div class="detail-label">Duration</div><div id="detailDuration" class="detail-value">—</div></div>
+            <div class="detail-item"><div class="detail-label">Aspect ratio</div><div id="detailRatio" class="detail-value">—</div></div>
+            <div class="detail-item"><div class="detail-label">Style</div><div id="detailStyle" class="detail-value">—</div></div>
+            <div class="detail-item"><div class="detail-label">Voice</div><div id="detailVoice" class="detail-value">—</div></div>
+          </div>
+          <div>
+            <label>Narration Script</label>
+            <div id="selectedVideoScript" class="details-script">Loading video details…</div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <a id="selectedDownloadMp4" href="#" download class="btn btn-primary hidden" style="font-size:0.8rem; padding:8px 14px;">Download MP4</a>
+            <a id="selectedTimeline" href="#" target="_blank" class="btn btn-secondary mono hidden" style="font-size:0.75rem; padding:8px 12px;">timeline.json</a>
+            <a id="selectedManifest" href="#" target="_blank" class="btn btn-secondary mono hidden" style="font-size:0.75rem; padding:8px 12px;">manifest.json</a>
+          </div>
+        </div>
+
+        <!-- Live render status stays in the main workspace, never under API credentials. -->
+        <div id="jobStatusCard" class="card hidden">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <h3 style="font-size:0.9rem; font-weight:700;" id="jobIdDisplay">Job</h3>
+              <p class="mono" style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                Stage: <span id="jobStageDisplay" style="color:var(--accent); font-weight:600; text-transform:uppercase;">queued</span>
+              </p>
+            </div>
+            <span id="jobStatusBadge" class="badge badge-warning">QUEUED (0%)</span>
+          </div>
+          <div class="progress-track"><div id="jobProgressFill" class="progress-fill"></div></div>
+          <div id="playerSection" class="hidden" aria-hidden="true" style="display:none !important;">
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="display:flex; gap:8px;">
+                <a id="btnDownloadMp4" href="#" download class="btn btn-primary" style="font-size:0.8rem; padding:8px 14px;">Download 1080p MP4</a>
+                <a id="linkTimeline" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">timeline.json</a>
+                <a id="linkManifest" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">manifest.json</a>
+              </div>
+              <span id="renderPathDisplay" class="mono" style="font-size:0.75rem; color:var(--text-muted);"></span>
+            </div>
+          </div>
+        </div>
+
         <!-- Studio Form Card -->
-        <div class="card">
+        <div id="generatorCard" class="card">
           <div class="card-title">
             <span>Script-to-Video Engine</span>
             <span class="badge">Multi-Ratio H.264</span>
@@ -283,7 +350,6 @@
                 <input type="hidden" id="durationValueInput" value="90">
                 <input type="hidden" id="durationUnitSelect" value="s">
                 <select id="durationSelect" style="display:none;"><option value="1:30 min" selected>1:30 min</option></select>
-              </div>
               </div>
 
               <div>
@@ -329,46 +395,6 @@
           </form>
         </div>
 
-        <!-- Live Progress & Player Card -->
-        <div id="jobStatusCard" class="card hidden">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <h3 style="font-size:0.9rem; font-weight:700;" id="jobIdDisplay">Job</h3>
-              <p class="mono" style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
-                Stage: <span id="jobStageDisplay" style="color:var(--accent); font-weight:600; text-transform:uppercase;">queued</span>
-              </p>
-            </div>
-            <span id="jobStatusBadge" class="badge badge-warning">QUEUED (0%)</span>
-          </div>
-
-          <div class="progress-track">
-            <div id="jobProgressFill" class="progress-fill"></div>
-          </div>
-
-          <!-- Player Container -->
-          <div id="playerSection" class="hidden" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
-            <div class="video-container">
-              <video id="videoPlayer" controls autoplay playsinline>
-                Your browser does not support HTML5 video.
-              </video>
-            </div>
-
-            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
-              <div style="display:flex; gap:8px;">
-                <a id="btnDownloadMp4" href="#" download class="btn btn-primary" style="font-size:0.8rem; padding:8px 14px;">
-                  Download 1080p MP4
-                </a>
-                <a id="linkTimeline" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">
-                  timeline.json
-                </a>
-                <a id="linkManifest" href="#" target="_blank" class="btn btn-secondary mono" style="font-size:0.75rem; padding:8px 12px;">
-                  manifest.json
-                </a>
-              </div>
-              <span id="renderPathDisplay" class="mono" style="font-size:0.75rem; color:var(--text-muted);"></span>
-            </div>
-          </div>
-        </div>
       </div>
     </main>
   </div>
@@ -410,6 +436,7 @@
       const btnBackToRequest = document.getElementById('btnBackToRequest');
       const currentUserDisplay = document.getElementById('currentUserDisplay');
       const btnLogout = document.getElementById('btnLogout');
+      const btnNewScript = document.getElementById('btnNewScript');
 
       const pixabayStatusDot = document.getElementById('pixabayStatusDot');
       const pixabayStatusText = document.getElementById('pixabayStatusText');
@@ -442,6 +469,22 @@
       const avoidInput = document.getElementById('avoidInput');
       const btnGenerateVideo = document.getElementById('btnGenerateVideo');
       const jobError = document.getElementById('jobError');
+      const generatorCard = document.getElementById('generatorCard');
+      const selectedVideoCard = document.getElementById('selectedVideoCard');
+      const btnCreateNew = document.getElementById('btnCreateNew');
+      const selectedVideoTitle = document.getElementById('selectedVideoTitle');
+      const selectedVideoStatus = document.getElementById('selectedVideoStatus');
+      const selectedVideoBadge = document.getElementById('selectedVideoBadge');
+      const selectedVideoScript = document.getElementById('selectedVideoScript');
+      const selectedVideoPlayer = document.getElementById('selectedVideoPlayer');
+      const selectedVideoElement = document.getElementById('selectedVideoElement');
+      const selectedDownloadMp4 = document.getElementById('selectedDownloadMp4');
+      const selectedTimeline = document.getElementById('selectedTimeline');
+      const selectedManifest = document.getElementById('selectedManifest');
+      const detailDuration = document.getElementById('detailDuration');
+      const detailRatio = document.getElementById('detailRatio');
+      const detailStyle = document.getElementById('detailStyle');
+      const detailVoice = document.getElementById('detailVoice');
 
       const jobStatusCard = document.getElementById('jobStatusCard');
       const jobIdDisplay = document.getElementById('jobIdDisplay');
@@ -782,6 +825,21 @@
               }
             });
           });
+
+          const activeJob = jobs.find(job => job.status === 'running' || job.status === 'queued');
+          if (activeJob && activeJob.job_id !== currentJobId) {
+            currentJobId = activeJob.job_id;
+            loadJobIntoPlayer(currentJobId);
+            startJobPolling(currentJobId, '16:9');
+          } else if (!currentJobId) {
+            // Show the newest completed video after a page refresh. Previously
+            // the artifact existed but no HTML player was selected/populated.
+            const latestCompleted = jobs.find(job => job.status === 'succeeded');
+            if (latestCompleted) {
+              currentJobId = latestCompleted.job_id;
+              loadJobIntoPlayer(currentJobId);
+            }
+          }
         } catch (e) {}
       }
 
@@ -806,17 +864,64 @@
           if (res.ok) {
             const job = await res.json();
             updateJobUI(job);
-            if (job.status === 'succeeded') {
-              const videoUrl = `/api/v1/jobs/${jobId}/artifacts/video_16_9.mp4`;
-              videoPlayer.src = videoUrl;
-              btnDownloadMp4.href = videoUrl;
-              linkTimeline.href = `/api/v1/jobs/${jobId}/artifacts/timeline.json`;
-              linkManifest.href = `/api/v1/jobs/${jobId}/artifacts/manifest.json`;
-              renderPathDisplay.textContent = `Saved in: ./renders/${jobId}/`;
-              playerSection.classList.remove('hidden');
-            }
+            showSelectedVideo(job);
           }
         } catch (e) {}
+      }
+
+      function getVideoUrl(job) {
+        const videos = job.artifacts && job.artifacts.videos;
+        return (videos && (videos['16:9'] || Object.values(videos)[0])) || `/api/v1/jobs/${job.job_id}/artifacts/video_16_9.mp4`;
+      }
+
+      function getFreshVideoUrl(job) {
+        const url = getVideoUrl(job);
+        // Always bust cache: a recovered artifact may be replaced after the
+        // original job record was written.
+        const stamp = Date.now();
+        return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(stamp)}`;
+      }
+
+      function setSelectedBadge(job) {
+        selectedVideoBadge.className = job.status === 'succeeded' ? 'badge badge-success' : (job.status === 'failed' ? 'badge' : 'badge badge-warning');
+        selectedVideoBadge.style.background = job.status === 'failed' ? 'rgba(239, 68, 68, 0.15)' : '';
+        selectedVideoBadge.style.color = job.status === 'failed' ? 'var(--danger)' : '';
+        selectedVideoBadge.textContent = `${job.status.toUpperCase()} (${job.progress || 0}%)`;
+      }
+
+      function showSelectedVideo(job) {
+        const request = job.request || {};
+        const title = job.friendly_title || request.script || job.job_id;
+        const ratio = Array.isArray(request.aspect_ratios) ? request.aspect_ratios.join(', ') : '16:9';
+        selectedVideoTitle.textContent = title.length > 90 ? `${title.slice(0, 87)}…` : title;
+        selectedVideoStatus.textContent = `Job ${job.job_id} · ${job.stage || 'queued'}`;
+        selectedVideoScript.textContent = request.script || 'Script details are unavailable for this older job.';
+        detailDuration.textContent = job.duration_seconds ? `${Math.round(job.duration_seconds)} seconds` : 'Processing';
+        detailRatio.textContent = ratio;
+        detailStyle.textContent = request.style || 'Default';
+        detailVoice.textContent = request.voice || 'Default';
+        setSelectedBadge(job);
+        selectedVideoCard.classList.remove('hidden');
+        generatorCard.classList.add('hidden');
+        document.querySelectorAll('.history-item').forEach(el => el.classList.toggle('is-selected', el.dataset.id === job.job_id));
+
+        if (job.status === 'succeeded') {
+          const videoUrl = getFreshVideoUrl(job);
+          selectedVideoElement.src = videoUrl;
+          selectedVideoElement.load();
+          selectedVideoPlayer.classList.remove('hidden');
+          selectedDownloadMp4.href = videoUrl;
+          selectedTimeline.href = `/api/v1/jobs/${job.job_id}/artifacts/timeline.json`;
+          selectedManifest.href = `/api/v1/jobs/${job.job_id}/artifacts/manifest.json`;
+          selectedDownloadMp4.classList.remove('hidden');
+          selectedTimeline.classList.remove('hidden');
+          selectedManifest.classList.remove('hidden');
+        } else {
+          selectedVideoPlayer.classList.add('hidden');
+          selectedDownloadMp4.classList.add('hidden');
+          selectedTimeline.classList.add('hidden');
+          selectedManifest.classList.add('hidden');
+        }
       }
 
       function escapeHtml(str) {
@@ -825,6 +930,21 @@
 
       if (btnRefreshHistory) {
         btnRefreshHistory.addEventListener('click', fetchHistory);
+      }
+      if (btnCreateNew) {
+        btnCreateNew.addEventListener('click', showNewScriptForm);
+      }
+      if (btnNewScript) {
+        btnNewScript.addEventListener('click', showNewScriptForm);
+      }
+
+      function showNewScriptForm() {
+        selectedVideoCard.classList.add('hidden');
+        generatorCard.classList.remove('hidden');
+        document.querySelectorAll('.history-item').forEach(el => el.classList.remove('is-selected'));
+        scriptInput.value = '';
+        scriptInput.focus();
+        generatorCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       // 7. Video Studio Generation & Polling
@@ -853,6 +973,7 @@
               style,
               voice,
               avoid,
+              duration_seconds: getDurationSeconds(),
             }),
           });
 
@@ -875,7 +996,7 @@
         }
       });
 
-      function startJobPolling(jobId, ratio) {
+      function startJobPolling(jobId, ratio = '16:9') {
         jobStatusCard.classList.remove('hidden');
         jobIdDisplay.textContent = `Job: ${jobId}`;
         updateJobUI({ status: 'queued', progress: 5, stage: 'queued' });
@@ -888,22 +1009,14 @@
             if (res.ok) {
               const job = await res.json();
               updateJobUI(job);
+              if (!selectedVideoCard.classList.contains('hidden')) showSelectedVideo(job);
 
               if (job.status === 'succeeded') {
                 clearInterval(activePollInterval);
                 btnGenerateVideo.disabled = false;
                 btnGenerateVideo.innerHTML = '<span>Generate B-Roll Video</span>';
                 fetchHistory();
-
-                // Display video player
-                const safeRatio = ratio.replace(':', '_');
-                const videoUrl = `/api/v1/jobs/${jobId}/artifacts/video_${safeRatio}.mp4`;
-                videoPlayer.src = videoUrl;
-                btnDownloadMp4.href = videoUrl;
-                linkTimeline.href = `/api/v1/jobs/${jobId}/artifacts/timeline.json`;
-                linkManifest.href = `/api/v1/jobs/${jobId}/artifacts/manifest.json`;
-                renderPathDisplay.textContent = `Saved in: ./renders/${jobId}/`;
-                playerSection.classList.remove('hidden');
+                showSelectedVideo(job);
               } else if (job.status === 'failed') {
                 clearInterval(activePollInterval);
                 btnGenerateVideo.disabled = false;

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import secrets
+import subprocess
 import time
 from typing import Any, Dict, Optional
 import urllib.parse
@@ -53,6 +54,12 @@ app = FastAPI(
     description="Asynchronous video generation engine transforming scripts, narration audio, or scene lists into license-clean, multi-aspect-ratio B-roll videos with synchronized audio and captions.",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+async def recover_interrupted_jobs() -> None:
+    """Ensure status reflects worker availability after an application restart."""
+    await runner.fail_orphaned_jobs()
 
 
 # ==============================================================================
@@ -563,7 +570,11 @@ async def list_jobs_endpoint(limit: int = 50, offset: int = 0):
             "stage": j.stage,
             "created_at": j.created_at,
             "duration_seconds": j.duration_seconds,
-            "video_url": f"/api/v1/jobs/{j.job_id}/artifacts/video_16_9.mp4" if j.status == "succeeded" else None,
+            "video_url": (
+                next(iter(j.artifacts.videos.values()))
+                if j.status == "succeeded" and j.artifacts and j.artifacts.videos
+                else None
+            ),
             "script_preview": (j.request.get("script", "")[:120] if j.request else ""),
         }
         for j in jobs
@@ -649,20 +660,85 @@ async def get_broll_job_status(job_id: str, request: Request):
     return await get_job_status(job_id=job_id, request=request)
 
 
+def ensure_h264_playable(mp4_path: Path) -> Path:
+    """If an MP4 is encoded with mpeg4 (Simple Profile), transcode in-place to H.264 (libopenh264) for HTML5 video playback."""
+    if not mp4_path.exists() or mp4_path.stat().st_size == 0:
+        return mp4_path
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_name", str(mp4_path)],
+            capture_output=True,
+            text=True,
+            timeout=4.0,
+        )
+        if "codec_name=mpeg4" in probe.stdout:
+            tmp_out = mp4_path.with_suffix(".h264_tmp.mp4")
+            transcode = subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", str(mp4_path),
+                    "-c:v", "libopenh264", "-pix_fmt", "yuv420p",
+                    "-c:a", "copy", str(tmp_out),
+                ],
+                capture_output=True,
+                timeout=45.0,
+            )
+            if transcode.returncode == 0 and tmp_out.exists() and tmp_out.stat().st_size > 0:
+                tmp_out.replace(mp4_path)
+            elif tmp_out.exists():
+                tmp_out.unlink()
+    except Exception:
+        pass
+    return mp4_path
+
+
 @app.get(
-    "/api/v1/jobs/{job_id}/artifacts/{file_name}",
+    "/api/v1/jobs/{job_id}/artifacts/{file_name:path}",
     summary="Download generated job artifact",
 )
+@app.head(
+    "/api/v1/jobs/{job_id}/artifacts/{file_name:path}",
+    summary="Check generated job artifact header",
+)
 async def get_job_artifact(job_id: str, file_name: str):
-    artifact_path = settings.JOBS_DIR / job_id / "artifacts" / file_name
-    if not artifact_path.exists() or not artifact_path.is_file():
+    candidate_paths = [
+        settings.JOBS_DIR / job_id / "artifacts" / file_name,
+        settings.RENDERS_DIR / job_id / "artifacts" / file_name,
+        settings.RENDERS_DIR / job_id / file_name,
+        settings.JOBS_DIR / job_id / file_name,
+    ]
+    # Check fallback video naming if looking for an mp4 video
+    if file_name.endswith(".mp4"):
+        candidate_paths.extend([
+            settings.RENDERS_DIR / job_id / "out.mp4",
+            settings.JOBS_DIR / job_id / "artifacts" / "out.mp4",
+            settings.RENDERS_DIR / job_id / "video_16_9.mp4",
+            settings.JOBS_DIR / job_id / "artifacts" / "video_16_9.mp4",
+        ])
+
+    target_path: Optional[Path] = None
+    for p in candidate_paths:
+        if p.exists() and p.is_file():
+            target_path = p
+            break
+
+    if not target_path:
         raise IncuBrixAPIException(
             status_code=404,
             code="JOB_NOT_FOUND",
             message=f"Artifact '{file_name}' not found for job '{job_id}'.",
             details={"job_id": job_id, "file_name": file_name},
         )
-    return FileResponse(artifact_path)
+
+    # Ensure mp4 files are encoded with H.264 so browser <video> tags render frames without black screen
+    if target_path.suffix.lower() == ".mp4":
+        target_path = ensure_h264_playable(target_path)
+        return FileResponse(
+            target_path,
+            media_type="video/mp4",
+            headers={"Accept-Ranges": "bytes"},
+        )
+
+    return FileResponse(target_path)
 
 
 @app.post(
@@ -1034,4 +1110,3 @@ async def update_config_keys(request: Request):
 
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {"status": "ok", "message": "API keys successfully updated and saved to .env"}
-

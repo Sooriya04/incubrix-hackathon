@@ -252,6 +252,7 @@ async def build_audio_pipeline(
     voice: str,
     workspace_dir: Path,
     mock: bool = False,
+    target_duration_sec: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Build the complete audio generation and caption pipeline.
 
@@ -290,6 +291,18 @@ async def build_audio_pipeline(
     unified_words: List[Dict[str, Any]] = []
     unified_segments: List[Dict[str, Any]] = []
 
+    # Reserve the known scene gaps and final end card. The remaining time is
+    # apportioned by spoken word count so a requested duration reflects the
+    # finished video rather than only the source script's approximate word count.
+    scene_word_counts = [max(1, len((s.get("text") or "").split())) for s in scenes_data]
+    total_words = sum(scene_word_counts)
+    fixed_padding = max(0, len(scenes_data) - 1) * 0.2 + 2.0
+    target_speech_duration = (
+        max(float(target_duration_sec) - fixed_padding, len(scenes_data) * 0.8)
+        if target_duration_sec
+        else None
+    )
+
     # 1. Synthesize each scene and extract word alignments
     for idx, s in enumerate(scenes_data):
         scene_id = idx + 1
@@ -301,6 +314,25 @@ async def build_audio_pipeline(
         # Synthesize audio file
         await synthesize_scene_audio(voice_text, voice, out_file, mock=mock)
         duration = get_audio_duration(out_file)
+        if target_speech_duration:
+            desired_duration = target_speech_duration * (scene_word_counts[idx] / total_words)
+            # FFmpeg's atempo factor is input duration / desired duration.
+            # The supported 0.5–2.0 range covers normal duration corrections.
+            tempo = duration / desired_duration
+            if 0.5 <= tempo <= 2.0 and abs(duration - desired_duration) > 0.08:
+                adjusted_file = out_file.with_suffix(".adjusted.mp3")
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-i", str(out_file),
+                        "-filter:a", f"atempo={tempo:.6f}",
+                        "-c:a", "libmp3lame", str(adjusted_file),
+                    ],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                adjusted_file.replace(out_file)
+                duration = get_audio_duration(out_file)
         audio_frames = int(round(duration * FPS))
 
         is_last = (idx == len(scenes_data) - 1)
@@ -616,6 +648,7 @@ async def process_job_audio(
         voice=voice,
         workspace_dir=workspace_dir,
         mock=mock,
+        target_duration_sec=float(duration_sec) if duration_sec else None,
     )
 
     # Copy captions.srt to final artifacts directory

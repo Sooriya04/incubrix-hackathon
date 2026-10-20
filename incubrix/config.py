@@ -22,8 +22,10 @@ class Settings(BaseSettings):
     AGY_BIN_PATH: str = Field(
         default_factory=lambda: shutil.which("agy") or "/home/sooriya/.local/bin/agy"
     )
+    AGY_SCRIPT_MODEL: str = Field(default="Gemini 3.8 Flash (High)")
     AGY_MOCK: bool = Field(default=False)
     JOB_TIMEOUT_SECONDS: int = Field(default=900)
+    REMOTION_RENDER_TIMEOUT_SECONDS: int = Field(default=60)
     WEBHOOK_SECRET: str = Field(default="secret")
     REQUIRE_IDEMPOTENCY_KEY: bool = Field(default=False)
 

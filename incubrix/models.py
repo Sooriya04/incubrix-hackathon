@@ -88,6 +88,12 @@ class CreateJobRequest(BaseModel):
     avoid: List[str] = Field(default_factory=list)
     captions: CaptionSettings = Field(default_factory=CaptionSettings)
     callback_url: Optional[str] = None
+    duration_seconds: Optional[int] = Field(
+        default=None,
+        ge=5,
+        le=600,
+        description="Requested finished-video duration. Narration is fitted to this duration when supplied.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -368,6 +374,7 @@ class JobStatusResponse(BaseModel):
     error: Optional[ErrorDetail] = None
     artifacts: Optional[JobArtifacts] = None
     friendly_title: Optional[str] = None
+    request: Optional[Dict[str, Any]] = None
 
 
 # ==============================================================================
@@ -436,4 +443,5 @@ class JobRecord(BaseModel):
             error=self.error,
             artifacts=self.artifacts,
             friendly_title=self.friendly_title,
+            request=self.request,
         )

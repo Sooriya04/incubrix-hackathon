@@ -69,17 +69,25 @@ async def render_remotion_ratio(
     workspace_dir = Path(workspace_dir).resolve()
     output_mp4.parent.mkdir(parents=True, exist_ok=True)
     if mock:
-        # Fast, deterministic MP4 generation with video and audio streams for testing (<0.1s)
+        # Fast, deterministic MP4 generation that still follows the generated
+        # narration length. This keeps API-test artifacts representative.
+        voiceover = workspace_dir / "public" / "voiceover.mp3"
+        has_voiceover = voiceover.exists() and voiceover.stat().st_size > 0
         cmd = [
             "ffmpeg",
             "-y",
             "-f", "lavfi", "-i", "color=c=0x0F1115:s=640x360:r=30",
-            "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
-            "-t", "2.0",
-            "-c:v", "mpeg4",
+        ]
+        if has_voiceover:
+            cmd.extend(["-i", str(voiceover), "-shortest"])
+        else:
+            cmd.extend(["-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", "2.0"])
+        cmd.extend([
+            "-c:v", "libopenh264",
+            "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             str(output_mp4),
-        ]
+        ])
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -150,6 +158,123 @@ async def render_remotion_ratio(
         raise RuntimeError(f"Rendered video {output_mp4.name} failed ffprobe playback verification")
 
 
+async def is_playable_mp4(video_file: Path) -> bool:
+    """Return whether ``video_file`` is a decodable MP4 with video and audio.
+
+    A failed Chromium/Remotion render may leave an ``ftyp``-only file behind.
+    Existence and a non-zero size are therefore not sufficient completion checks.
+    """
+    if not video_file.exists() or video_file.stat().st_size < 1024:
+        return False
+
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "stream=codec_type:format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(video_file),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await proc.communicate()
+    values = {line.strip() for line in stdout.decode("utf-8", errors="replace").splitlines()}
+    return proc.returncode == 0 and {"video", "audio"}.issubset(values)
+
+
+async def render_footage_fallback(
+    workspace_dir: Path,
+    output_mp4: Path,
+    ratio: str,
+) -> None:
+    """Build a playable B-roll montage if Chromium/Remotion cannot start.
+
+    It uses the job's real scene clips and generated narration rather than a
+    blank plate, so a renderer outage never reduces a finished video to black.
+    """
+    captions_path = workspace_dir / "captions.json"
+    voiceover = workspace_dir / "public" / "voiceover.mp3"
+    if not captions_path.exists() or not voiceover.exists():
+        raise RuntimeError("Cannot build footage fallback: captions or narration is missing")
+
+    with open(captions_path, "r", encoding="utf-8") as f:
+        scenes = json.load(f).get("scenes", [])
+    # Keep the emergency path quick enough to recover a blocked renderer. The
+    # primary Remotion path remains the 1080p-class export.
+    dimensions = {"16:9": (640, 360), "9:16": (360, 640), "1:1": (540, 540)}
+    width, height = dimensions.get(ratio, dimensions["16:9"])
+
+    inputs: list[str] = []
+    filters: list[str] = []
+    scene_labels: list[str] = []
+    footage_dir = workspace_dir / "public" / "footage"
+    for index, scene in enumerate(scenes):
+        candidate = footage_dir / f"scene_{int(scene.get('id', index + 1)):02d}.mp4"
+        if not candidate.exists() or candidate.stat().st_size == 0:
+            continue
+        duration = max(0.5, float(scene.get("durationSec", 2.0)))
+        inputs.extend(["-stream_loop", "-1", "-i", str(candidate)])
+        label = f"v{len(scene_labels)}"
+        filters.append(
+            f"[{len(scene_labels)}:v]trim=duration={duration:.3f},setpts=PTS-STARTPTS,"
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},fps=30,format=yuv420p[{label}]"
+        )
+        scene_labels.append(label)
+
+    if not scene_labels:
+        # Provider had no semantically relevant clip. Render the Remotion-style
+        # semantic animation fallback as a clean animated text card with the
+        # narration captions. This preserves meaning instead of showing stock
+        # footage for the wrong topic.
+        srt_file = workspace_dir / "artifacts" / "captions.srt"
+        escaped_srt = str(srt_file.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+        semantic_filter = (
+            f"subtitles=filename='{escaped_srt}':force_style="
+            "'FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,"
+            "OutlineColour=&H00000000,BackColour=&H99000000,BorderStyle=1,"
+            "Outline=2,Shadow=1,Alignment=2,MarginV=34'"
+        )
+        cmd = [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x111827:s={width}x{height}:r=15",
+            "-i", str(voiceover), "-vf", semantic_filter, "-map", "0:v", "-map", "1:a",
+            "-c:v", "libopenh264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k", "-shortest", str(output_mp4),
+        ]
+        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0 or not await is_playable_mp4(output_mp4):
+            error = redact_secrets(stderr.decode("utf-8", errors="replace"))
+            raise RuntimeError(f"Semantic animation fallback failed: {error[-500:]}")
+        return
+
+    filters.append("".join(f"[{label}]" for label in scene_labels) + f"concat=n={len(scene_labels)}:v=1:a=0[vbase]")
+    srt_file = workspace_dir / "artifacts" / "captions.srt"
+    if srt_file.exists():
+        escaped_srt = str(srt_file.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+        filters.append(
+            f"[vbase]subtitles=filename='{escaped_srt}':force_style="
+            "'FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,"
+            "OutlineColour=&H00000000,BackColour=&H99000000,BorderStyle=1,"
+            "Outline=2,Shadow=1,Alignment=2,MarginV=38'[v]"
+        )
+    else:
+        filters.append("[vbase]null[v]")
+    cmd = [
+        "ffmpeg", "-y", *inputs, "-i", str(voiceover),
+        "-filter_complex", ";".join(filters),
+        "-map", "[v]", "-map", f"{len(scene_labels)}:a",
+        "-c:v", "libopenh264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k", "-shortest", str(output_mp4),
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0 or not await is_playable_mp4(output_mp4):
+        error = redact_secrets(stderr.decode("utf-8", errors="replace"))
+        raise RuntimeError(f"Footage fallback did not produce a playable MP4: {error[-500:]}")
+
+
 class JobRunner:
     """Manages background job execution using headless agy or mock harness."""
 
@@ -163,6 +288,38 @@ class JobRunner:
         # Remove task on completion
         task.add_done_callback(lambda _: self.active_tasks.pop(job_id, None))
         return task
+
+    async def fail_orphaned_jobs(self) -> int:
+        """Mark unfinished jobs left behind by a stopped application as failed.
+
+        Rendering happens inside this process, so an in-memory task cannot survive a
+        server restart. Reporting such jobs as running would be misleading.
+        """
+        jobs = await job_store.list_jobs(limit=1000)
+        recovered = 0
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+        for job in jobs:
+            if job.status not in {"queued", "running"}:
+                continue
+            if job.job_id in self.active_tasks:
+                continue
+
+            previous_stage = job.stage
+            previous_progress = job.progress
+            job.status = "failed"
+            job.stage = "failed"
+            job.failed_at = now
+            job.error = ErrorDetail(
+                code="WORKER_STOPPED",
+                message="Rendering stopped because the IncuBrix worker was restarted or shut down.",
+                retryable=True,
+                details={"previous_stage": previous_stage, "previous_progress": previous_progress},
+            )
+            await job_store.save_job(job)
+            recovered += 1
+
+        return recovered
 
     async def run_job(self, job_id: str) -> None:
         """Execute a job asynchronously, updating stages and capturing artifacts."""
@@ -329,24 +486,21 @@ class JobRunner:
                         workspace_dir=workspace_dir,
                         composition_id=composition_id,
                         output_mp4=video_out,
-                        timeout_seconds=min(180.0, float(settings.JOB_TIMEOUT_SECONDS)),
+                        timeout_seconds=min(
+                            float(settings.REMOTION_RENDER_TIMEOUT_SECONDS),
+                            float(settings.JOB_TIMEOUT_SECONDS),
+                        ),
                         mock=is_mock,
                     )
                 except Exception as render_err:
-                    # Graceful preview fallback: assemble lightweight preview MP4 with speech audio
-                    if not video_out.exists() or video_out.stat().st_size == 0:
-                        audio_file = workspace_dir / "public" / "voiceover.mp3"
-                        dur_sec = captions_data.get("totalDurationSec", 6.0)
-                        fb_cmd = [
-                            "ffmpeg", "-y",
-                            "-f", "lavfi", "-i", "color=c=0x0F1115:s=1280x720:r=30",
-                            "-i", str(audio_file) if audio_file.exists() else "anullsrc=r=24000:cl=mono",
-                            "-t", str(dur_sec),
-                            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                            "-c:a", "aac", "-b:a", "128k",
-                            str(video_out),
-                        ]
-                        subprocess.run(fb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    # A failed Remotion process can leave an ftyp-only, corrupt MP4.
+                    # Remove it and create a footage montage with the narration.
+                    if video_out.exists():
+                        video_out.unlink()
+                    try:
+                        await render_footage_fallback(workspace_dir, video_out, ratio)
+                    except Exception as fallback_err:
+                        raise RuntimeError(f"Remotion failed ({render_err}); {fallback_err}") from fallback_err
 
                 # Ensure renders_job_dir has video directly
                 render_video_out = renders_job_dir / f"video_{safe_name}.mp4"
@@ -379,7 +533,11 @@ class JobRunner:
             duration_seconds = round(end_time - start_time, 2)
 
             # Ensure deliverables exist (fallback safety net)
-            self._ensure_artifacts(job_id, artifacts_dir, aspect_ratios)
+            for ratio in aspect_ratios:
+                safe_name = ratio.replace(":", "_")
+                video_file = artifacts_dir / f"video_{safe_name}.mp4"
+                if not await is_playable_mp4(video_file):
+                    raise RuntimeError(f"Final artifact {video_file.name} is missing, corrupt, or lacks audio/video streams")
 
             videos_map = {
                 ratio: f"/api/v1/jobs/{job_id}/artifacts/video_{ratio.replace(':', '_')}.mp4"
@@ -537,16 +695,7 @@ class JobRunner:
         """Create valid artifacts adhering to API_CONTRACT.md specs if not already generated."""
         artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. video_{ratio}.mp4
-        for ratio in aspect_ratios:
-            safe_name = ratio.replace(":", "_")
-            video_file = artifacts_dir / f"video_{safe_name}.mp4"
-            if not video_file.exists():
-                # Write minimal MP4 header or placeholder content
-                with open(video_file, "wb") as f:
-                    f.write(b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00isommp42")
-
-        # 2. captions.srt
+        # 1. captions.srt
         srt_file = artifacts_dir / "captions.srt"
         if not srt_file.exists():
             srt_content = (
@@ -560,7 +709,7 @@ class JobRunner:
             with open(srt_file, "w", encoding="utf-8") as f:
                 f.write(srt_content)
 
-        # 3. timeline.json
+        # 2. timeline.json
         timeline_file = artifacts_dir / "timeline.json"
         if not timeline_file.exists():
             timeline_data = {
@@ -621,7 +770,7 @@ class JobRunner:
             with open(timeline_file, "w", encoding="utf-8") as f:
                 json.dump(timeline_data, f, indent=2)
 
-        # 4. manifest.json
+        # 3. manifest.json
         manifest_file = artifacts_dir / "manifest.json"
         if not manifest_file.exists():
             manifest_data = {

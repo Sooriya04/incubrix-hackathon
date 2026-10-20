@@ -23,6 +23,31 @@ def test_secret_redaction():
 
 
 @pytest.mark.asyncio
+async def test_orphaned_jobs_are_marked_failed_after_worker_restart(isolated_storage):
+    """Jobs without a live in-process task must not keep reporting as running."""
+    store = isolated_storage["job_store"]
+    job = JobRecord(
+        job_id="job_orphaned_worker",
+        status="running",
+        stage="rendering",
+        progress=93,
+        request={"script": "An interrupted render."},
+    )
+    await store.save_job(job)
+
+    recovered = await runner.fail_orphaned_jobs()
+    updated = await store.get_job(job.job_id)
+
+    assert recovered == 1
+    assert updated is not None
+    assert updated.status == "failed"
+    assert updated.stage == "failed"
+    assert updated.error is not None
+    assert updated.error.code == "WORKER_STOPPED"
+    assert updated.error.details == {"previous_stage": "rendering", "previous_progress": 93}
+
+
+@pytest.mark.asyncio
 async def test_job_failure_on_process_crash(client: httpx.AsyncClient, monkeypatch):
     """Simulated crash/non-zero exit code records failure status and error details."""
     headers = {"Idempotency-Key": "fail-crash-001"}

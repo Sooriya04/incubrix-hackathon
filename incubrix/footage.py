@@ -45,6 +45,12 @@ def clean_search_query(text: Optional[str]) -> str:
     return " ".join(words[:2])
 
 
+def semantic_match_score(query: str, hit: Dict[str, Any]) -> float:
+    terms = set(clean_search_query(query).split())
+    metadata = " ".join(str(hit.get(k, "")) for k in ("tags", "user", "pageURL")).lower()
+    return sum(term in metadata for term in terms) / max(1, len(terms))
+
+
 class PixabayClient:
     """Pixabay Video API client with aggressive disk caching and rate-limiting."""
 
@@ -211,24 +217,23 @@ async def process_job_footage(
         clip_dest = footage_dir / f"scene_{scene_id:02d}.mp4"
 
         if mock or not client.api_key:
-            # Offline mock footage generation
-            await generate_mock_clip(clip_dest, duration_sec=duration_sec)
+            await generate_mock_clip(clip_dest, duration_sec)
             scene_copy["footageUrl"] = f"footage/scene_{scene_id:02d}.mp4"
             scene_copy["clip"] = {
                 "clip_id": f"mock_clip_{scene_id:02d}",
-                "source_provider": "local_mock",
-                "source_url": f"https://storage.incubrix.internal/mock/scene_{scene_id:02d}.mp4",
+                "source_provider": "developer_plates",
+                "source_url": "",
                 "license": {
-                    "type": "IncuBrix Internal Mock",
+                    "type": "Internal",
                     "commercial_use_allowed": True,
                     "attribution_required": False,
                 },
-                "attribution": "IncuBrix Synthetic Plate",
+                "attribution": "IncuBrix Developer Plates",
                 "is_ai_generated": False,
                 "generator_model": None,
                 "trim": {"in_ms": 0, "out_ms": int(duration_sec * 1000)},
-                "selection_reason": f"Synthetic clip matching {visual_hint}",
-                "relevance_score": 4.5,
+                "selection_reason": f"Synthetic scene plate for '{visual_hint}'",
+                "relevance_score": 4.0,
             }
             enriched_scenes.append(scene_copy)
             continue
@@ -241,8 +246,9 @@ async def process_job_footage(
                 avoid=avoid,
             )
 
-            if hits:
-                best_hit = hits[0]
+            relevant_hits = [h for h in hits if semantic_match_score(visual_hint, h) >= 0.5]
+            if relevant_hits:
+                best_hit = max(relevant_hits, key=lambda h: semantic_match_score(visual_hint, h))
                 videos_dict = best_hit.get("videos", {})
                 # Choose medium resolution (1080p/720p) over massive 4K large to avoid memory bottlenecks
                 v_choice = (
@@ -279,9 +285,25 @@ async def process_job_footage(
         except Exception as exc:
             logger.warning(f"Failed to fetch Pixabay footage for scene {scene_id}: {exc}")
 
-        # Fallback to local plate if search yielded no hits or network failed
-        scene_copy["footageUrl"] = None
-        scene_copy["clip"] = None
+        # Fallback to local clip if search yielded no hits or network failed
+        await generate_mock_clip(clip_dest, duration_sec)
+        scene_copy["footageUrl"] = f"footage/scene_{scene_id:02d}.mp4"
+        scene_copy["clip"] = {
+            "clip_id": f"fallback_clip_{scene_id:02d}",
+            "source_provider": "developer_plates",
+            "source_url": "",
+            "license": {
+                "type": "Internal",
+                "commercial_use_allowed": True,
+                "attribution_required": False,
+            },
+            "attribution": "IncuBrix Developer Plates",
+            "is_ai_generated": False,
+            "generator_model": None,
+            "trim": {"in_ms": 0, "out_ms": int(duration_sec * 1000)},
+            "selection_reason": f"Fallback plate for '{visual_hint}'",
+            "relevance_score": 3.8,
+        }
         enriched_scenes.append(scene_copy)
 
     return enriched_scenes

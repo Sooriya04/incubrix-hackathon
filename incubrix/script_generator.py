@@ -6,8 +6,9 @@ to expand topic prompts into multi-scene narration scripts matching target durat
 
 import asyncio
 import re
-import shutil
 from typing import Any, Dict, List, Optional, Tuple
+
+from incubrix.config import settings
 
 
 def parse_duration_seconds(duration_str: str) -> int:
@@ -147,15 +148,18 @@ async def generate_script_from_topic(
     )
 
     generated_text = ""
-    # Try Antigravity CLI with low effort for fast (<10s) response
-    if shutil.which("agy"):
+    # Use the authenticated Antigravity CLI when it is available.
+    if settings.AGY_BIN_PATH and settings.AGY_BIN_PATH.strip():
         try:
             proc = await asyncio.create_subprocess_exec(
-                "agy", "--model", "ag/gemini-3.8-flash-high", "--effort", "low", "-p", prompt, "--dangerously-skip-permissions",
+                settings.AGY_BIN_PATH,
+                "--model", settings.AGY_SCRIPT_MODEL,
+                "--print-timeout", "45s",
+                "-p", prompt,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout_data, _ = await asyncio.wait_for(proc.communicate(), timeout=18.0)
+            stdout_data, _ = await asyncio.wait_for(proc.communicate(), timeout=50.0)
             if proc.returncode == 0:
                 out = stdout_data.decode("utf-8", errors="replace").strip()
                 if len(out.split()) >= 20:

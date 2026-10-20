@@ -219,10 +219,11 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
       {/* Timed scene sequence layer */}
       {scenes.map((scene) => {
         const rawFootage = scene.footageUrl || scene.clip?.source_url;
-        const footageSrc = rawFootage
-          ? rawFootage.startsWith('http://') || rawFootage.startsWith('https://') || rawFootage.startsWith('/')
-            ? rawFootage
-            : staticFile(rawFootage)
+        const normalizedFootage = rawFootage ? rawFootage.replace(/^\/?public\//, '') : null;
+        const footageSrc = normalizedFootage
+          ? normalizedFootage.startsWith('http://') || normalizedFootage.startsWith('https://') || normalizedFootage.startsWith('/')
+            ? normalizedFootage
+            : staticFile(normalizedFootage)
           : null;
 
         return (
@@ -252,25 +253,28 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
         );
       })}
 
-      {/* Captions Plate Layer: Burned in on solid plate with active-word highlight */}
+      {/* Captions: high-contrast lower-third with a small active-word accent. */}
       {activeSegment && (
         <div
           style={{
             position: 'absolute',
             left: '50%',
-            bottom: `${cfg.captionBottom * 100}%`,
+            bottom: `${Math.max(7, cfg.captionBottom * 100)}%`,
             transform: 'translateX(-50%)',
             maxWidth: `${cfg.captionMaxW * 100}%`,
-            backgroundColor: theme.surface,
-            border: `2px solid ${theme.line}`,
-            borderRadius: '8px',
-            padding: '16px 28px',
-            color: theme.ink,
+            backgroundColor: 'rgba(8, 10, 14, 0.88)',
+            border: '1px solid rgba(255,255,255,0.22)',
+            borderLeft: `5px solid ${theme.accent}`,
+            borderRadius: '10px',
+            padding: '14px 22px',
+            color: '#ffffff',
             fontFamily: FONTS.sans,
-            fontSize: `${cfg.captionSize}px`,
-            fontWeight: 600,
-            lineHeight: 1.25,
+            fontSize: `${Math.max(26, cfg.captionSize)}px`,
+            fontWeight: 700,
+            lineHeight: 1.2,
             textAlign: 'center',
+            textShadow: '0 2px 4px rgba(0,0,0,0.65)',
+            boxShadow: '0 5px 18px rgba(0,0,0,0.32)',
             zIndex: 10,
           }}
         >
@@ -281,8 +285,11 @@ export const BrollVideo: React.FC<BrollVideoProps> = ({
                 <span
                   key={idx}
                   style={{
-                    color: isWordActive ? theme.accent : theme.ink,
-                    marginRight: idx === activeWords.length - 1 ? 0 : '8px',
+                    color: isWordActive ? '#ffffff' : '#ffffff',
+                    backgroundColor: isWordActive ? theme.accent : 'transparent',
+                    borderRadius: '4px',
+                    padding: isWordActive ? '1px 4px' : '1px 0',
+                    marginRight: idx === activeWords.length - 1 ? 0 : '7px',
                   }}
                 >
                   {w.word}
